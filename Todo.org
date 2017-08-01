@@ -1,0 +1,48 @@
+* TODO Spec db
+* DONE Access fact ids and tuples from changes-report-channel
+  CLOSED: [2017-08-01 Tue 07:18]
+* TODO How to determine edges
+Seems only when a value is an eid/UUID/ref. No clear lockdown on what an eid is so hard to test
+Could introduce in library `:eid-predicate-function` that is user defined and defaults to testing for uuid
+Or we add an `:eid-fn` option and allow user to overwrite it as well as an eid predicate fn (mandatory if `:eid-function`) option
+This doubles back on asking the user to do stuff though (why not just use schema?) but would prevent every ref type from having to be explicitly defined
+and guard against inadequate schema definitions
+Issue : if devtools is separate application then it won't be able to verify eids using that function
+* TODO Design that works on client (cljs) and server (clj)
+   - In either scenario, want page that receives data via socket
+     - In CLJ, must serve app via separate server
+     - In CLJS, can run app in same context as Precept
+     - Appears to require two sets of code, and server to be created and started
+     - Need an abstraction layer - socket could be underneath it or something else. If we're running in a server we can use socket otherwise core async
+   - Create a separate page instead of adding div to client/user app
+   Server
+   - :devtools true in `start!`
+     - Add `check-devtools`. If `:devtools true` create socket
+   - Take from change-report and push to client via socket
+   - Devtools client listens on socket
+   - On connect, receives current state from server db
+   - On update, receives operations
+   - Socket handlers write to in-memory db (sync)
+   - Socket handlers remove and adds nodes (update) 
+* TODO Rule explanations 
+** TODO CLJS support
+- Either with Clara's help via beta graph or via listeners
+** TODO Unconditional inserts 
+- Not supported via clara.tools.inspect 
+- Figure out how to encode rule source of `insert-unconditional!`. Listeners may already tell us this via `add-activations!` event
+* TODO Nodes for entities 
+Compound nodes, outer for eid, inner for av pairs
+* TODO Nodes for rules 
+with the conditions and consequences, etc.
+* TODO "Why?" function
+Given a selected fact, explains/shows how it came to be
+* TODO UI design
+- Header with toolbar/options/buttons
+- Main container with graph, state tree, rule definitions
+
+| Component name            | Environment | Sends to        | Receives from   | Public API | Supported protocols                     |
+|---------------------------+-------------+-----------------+-----------------+------------+-----------------------------------------|
+| Devtools server           | Server      | Devtools client | Precept app     | Yes        | REST, Socket                            |
+| Devtools client           | Browser     | Devtools server | Devtools server | No         | Socket (send and receive)               |
+| Precept app (client-side) | Browser     | Devtools server | Devtools server | N/A        | REST (send only), Socket (receive only) |
+| Precept app (server-side) | Server      | Devtools server | Devtools server | N/A        | REST (send only), Socket (receive only) |
