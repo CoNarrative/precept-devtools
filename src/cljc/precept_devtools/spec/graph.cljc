@@ -3,3 +3,4 @@
             ;[precept.spec.facts :as facts]))
 
 
+;(s/def ::node)

@@ -2,7 +2,6 @@
     (:require [compojure.core :refer [defroutes GET POST]]
               [taoensso.sente :as sente]
               [mount.core :refer [defstate]]
-              [precept-devtools.db.core :refer [db]]
               [taoensso.sente.server-adapters.http-kit :refer [get-sch-adapter]]))
 
 (defstate socket
@@ -16,7 +15,7 @@
 (defmulti handle-message :id)
 
 (defmethod handle-message :chsk/uidport-open [x]
-  ((:send-fn x) (:uid x) [:init (:promotions @db)]))
+  ((:send-fn x) (:uid x) [:devtools/init {:hello true}]))
 
 (defmethod handle-message :chsk/handshake [_])
 (defmethod handle-message :chsk/uidport-close [_])

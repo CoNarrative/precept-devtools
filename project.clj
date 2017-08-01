@@ -54,13 +54,15 @@
   :profiles
   {:dev
    {:dependencies [[com.cemerick/piggieback "0.2.2-SNAPSHOT"]
-                   [figwheel-sidecar "0.5.11"]]
+                   [figwheel-sidecar "0.5.11"]
+                   [prone "1.1.4"]
+                   [ring/ring-devel "1.5.1"]]
 
     :plugins      [[lein-figwheel "0.5.11"]]
 
     :repl-options {:init-ns user}
-
-    :source-paths ["dev/clj"]
+    :source-paths ["env/dev/clj"]
+    :resource-paths ["env/dev/resources"]
 
     :cljsbuild
     {:builds
