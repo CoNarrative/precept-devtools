@@ -8,6 +8,7 @@ Or we add an `:eid-fn` option and allow user to overwrite it as well as an eid p
 This doubles back on asking the user to do stuff though (why not just use schema?) but would prevent every ref type from having to be explicitly defined
 and guard against inadequate schema definitions
 Issue : if devtools is separate application then it won't be able to verify eids using that function
+* TODO Get vector of :type ref from schema, send to Devtools server
 * TODO Design that works on client (cljs) and server (clj)
    - In either scenario, want page that receives data via socket
      - In CLJ, must serve app via separate server
@@ -23,8 +24,17 @@ Issue : if devtools is separate application then it won't be able to verify eids
    - On connect, receives current state from server db
    - On update, receives operations
    - Socket handlers write to in-memory db (sync)
-   - Socket handlers remove and adds nodes (update) 
+   - Socket handlers remove and adds nodes (update)
+* TODO Replace sente
+ - Requires adapter for server level, too restrictive to use in the framework. Replace with general-purpose socket library that can run in browser
+and on server as a socket client and server and interoperate with other socket libraries/implementations if possible
+* TODO Create queue for streamed updates?
+  - May need to add this as an extra layer. We need a full state with all its events at DB write time.
+    This is a concern because we stream n events per state, and probably do only want to transact whole states to avoid excessive read/write operations
 * TODO Rule explanations 
+** TODO Should be equivalent or better than Clara's 
+   - May end up being our own implementation
+   - Clara inspect tests https://github.com/cerner/clara-rules/blob/8afe3c8bfad7c40d522aada4e46a66cd35ed1b7e/src/test/clojure/clara/tools/test_inspect.clj
 ** TODO CLJS support
 - Either with Clara's help via beta graph or via listeners
 ** TODO Unconditional inserts 
@@ -40,9 +50,28 @@ Given a selected fact, explains/shows how it came to be
 - Header with toolbar/options/buttons
 - Main container with graph, state tree, rule definitions
 
+  Proposed gen 1 service architecture
+|---------------------------+-------------+-----------------+-----------------+------------+-----------------------------------------|
 | Component name            | Environment | Sends to        | Receives from   | Public API | Supported protocols                     |
 |---------------------------+-------------+-----------------+-----------------+------------+-----------------------------------------|
 | Devtools server           | Server      | Devtools client | Precept app     | Yes        | REST, Socket                            |
+| Event DB                  | Datomic     | Any             | Any             | Yes        | REST, Java API, Clojure API             |
 | Devtools client           | Browser     | Devtools server | Devtools server | No         | Socket (send and receive)               |
 | Precept app (client-side) | Browser     | Devtools server | Devtools server | N/A        | REST (send only), Socket (receive only) |
 | Precept app (server-side) | Server      | Devtools server | Devtools server | N/A        | REST (send only), Socket (receive only) |
+
+
+
+  Proposed gen 2 service architecture
+|---------------------------+-----------------+-------------------+-------------------------------+-------------+-----------------------------|
+| Component                 | Environment     | In                | Out                           | Public API? | Protocols                   |
+|---------------------------+-----------------+-------------------+-------------------------------+-------------+-----------------------------|
+| Event server              | Server          | Precept app, API  | Event DB, Vizualizer, clients | Yes         | REST, Socket                |
+| Event DB                  | Datomic         | Event server, API | Clients                       | Yes         | REST, Java API, Clojure API |
+| Vizualizer                | Web service     | Event server      | Vizualizer client             | Yes         | Socket                      |
+| Vizualizer client         | Browser         | Event server      | HTML                          | No          | Socket                      |
+| Precept app (client-side) | Browser, server | Devtools server   | Devtools server               | N/A         | Socket                      |
+
+- Not clear whether benefit to isolation vizualizer from devtools, where devtools may contain rule authoring capability. Would separate vizualization
+from rule authoring. Separation is possible at the application level instead of the service level with no clear difference in usability or 
+performance
