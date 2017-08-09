@@ -40,11 +40,11 @@
            :t (:t fact)}))
 
 (defn create-event-tx
-  [temp-id type action event-number #_facts]
+  [temp-id type event-number]
   (into {:db/id temp-id}
     #:event{:type type
-            :number event-number
-            :action action})) ;;optional
+            :number event-number}))
+            ;:action action})) ;;optional
             ;:match matches
             ;:binding bindings
             ;:fact facts}))
@@ -56,3 +56,4 @@
    :state/id state-id
    :state/number state-number})
    ;:state/events event-refs})
+

@@ -24,7 +24,6 @@
 
    (attribute :state/events
      :db.type/ref
-     :db/unique :db.unique/value
      :db/isComponent true
      :db/cardinality :db.cardinality/many)
 
