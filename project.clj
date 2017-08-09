@@ -8,6 +8,8 @@
                  [org.clojure/clojurescript "1.9.562"]
                  [compojure "1.5.2"]
                  [cprop "0.1.10"]
+                 [com.cognitect/transit-clj "0.8.288" :exclusions [com.fasterxml.jackson.core]]
+                 [com.fasterxml.jackson.core/jackson-core "2.8.6"]
                  [hiccup "1.0.5"]
                  [luminus-http-kit "0.1.4"]
                  [luminus-nrepl "0.1.4"]

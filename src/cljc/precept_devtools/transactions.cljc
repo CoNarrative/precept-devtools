@@ -1,23 +1,32 @@
 (ns precept-devtools.transactions)
 
 ;; TODO.
-;(defn create-binding-tx [])
+;(defn rm-quote-from-str [])
+
+(defn create-match-tx [temp-id fact-ref]
+  (into {:db/id temp-id}
+    #:match{:fact fact-ref}))
+
+(defn create-binding-tx [temp-id [variable value]]
+  (into {:db/id temp-id}
+    #:binding{:variable (str variable) ;; name? str?
+              :value (str value)})) ;; str??
 
 (defn create-condition-tx
-  [temp-id index type constraints fact-binding]
+  [temp-id index {:keys [type constraints fact-binding] :as condition}]
   (into {:db/id temp-id}
     #:condition{:type type
-                :constraints (mapv str constraints)
+                :constraints (mapv #(str `'~%) constraints)
                 :fact-binding fact-binding})) ;; optional
 
 (defn create-lhs-tx [temp-id condition-refs]
   (into {:db/id temp-id}
-    #:lhs{:condition condition-refs}))
+    #:lhs{:conditions condition-refs}))
 
-(defn create-rule-tx [temp-id name ns display-name rhs props]
+(defn create-rule-tx [temp-id name ns-name display-name rhs props]
   (into {:db/id temp-id}
     #:rule{:name name
-           :ns (str ns)
+           :ns (str ns-name)
            :display-name display-name
            :rhs (str rhs)
            :props (str props)}))
@@ -31,14 +40,19 @@
            :t (:t fact)}))
 
 (defn create-event-tx
-  [temp-id type action event-number facts]
+  [temp-id type action event-number #_facts]
   (into {:db/id temp-id}
     #:event{:type type
-            :action action
-            :number event-number}))
+            :number event-number
+            :action action})) ;;optional
+            ;:match matches
+            ;:binding bindings
+            ;:fact facts}))
+            ;:rule rule
 
 (defn create-state-tx
   [temp-id state-id state-number]
   {:db/id temp-id
-   :state/id (str state-id)
+   :state/id state-id
    :state/number state-number})
+   ;:state/events event-refs})

@@ -2,6 +2,11 @@
     (:require [precept.schema :refer [attribute]]))
 
 
+; Attribute names are pluralized for one-to-many rels and
+; singular for one-to-one.
+; This informs us of the arity of an attribute.
+; Once in the session all facts refer to a single value
+; so it can still be confusing, but hopefully less confusing
 (defn mk-db-schema []
   [
    ;; User
@@ -17,28 +22,33 @@
    (attribute :state/number
      :db.type/long)
 
-   (attribute :state/event
+   (attribute :state/events
      :db.type/ref
      :db/unique :db.unique/value
      :db/isComponent true
      :db/cardinality :db.cardinality/many)
 
    ;; Event
+   (attribute :event/type
+      :db.type/keyword)
+
    (attribute :event/number
      :db.type/long)
-
-   (attribute :event/type
-     :db.type/keyword)
 
    (attribute :event/action
      :db.type/boolean)
 
-   (attribute :event/match
+   (attribute :event/matches
      :db.type/ref
      :db/isComponent true
      :db/cardinality :db.cardinality/many)
 
-   (attribute :event/fact
+   (attribute :event/bindings
+      :db.type/ref
+      :db/isComponent true
+      :db/cardinality :db.cardinality/many)
+
+   (attribute :event/facts
      :db.type/ref
      :db/cardinality :db.cardinality/many)
 
@@ -55,11 +65,6 @@
    (attribute :rule/display-name
      :db.type/string)
 
-   (attribute :rule/bindings
-     :db.type/ref
-     :db/isComponent true
-     :db/cardinality :db.cardinality/many)
-
    (attribute :rule/rhs
      :db.type/string)
 
@@ -68,11 +73,10 @@
 
    (attribute :rule/lhs
      :db.type/ref
-     :db/cardinality :db.cardinality/many
      :db/isComponent true)
 
    ;; LHS
-   (attribute :lhs/condition
+   (attribute :lhs/conditions
      :db.type/ref
      :db/isComponent true
      :db/cardinality :db.cardinality/many)
@@ -84,7 +88,7 @@
    (attribute :condition/type
      :db.type/keyword)
 
-   (attribute :condition/constraint
+   (attribute :condition/constraints
      :db.type/string
      :db/cardinality :db.cardinality/many)
 
@@ -97,6 +101,12 @@
 
    (attribute :binding/value
      :db.type/string)
+
+   ;; Match - joins event and fact. Facts are standalone
+   ;; entities that are frequently referenced, so choosing
+   ;; not to resolve directly to a fact value of some kind
+   (attribute :match/fact
+     :db.type/ref)
 
    ;; Fact
    (attribute :fact/string
