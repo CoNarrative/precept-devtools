@@ -1,8 +1,8 @@
-(ns precept-devtools.core
+(ns precept-visualizer.core
   (:require [precept.state :as state]
             [reagent.core :as r]
-            [precept-devtools.util :as util]
-            [precept-devtools.views :as views]))
+            [precept-visualizer.util :as util]
+            [precept-visualizer.views :as views]))
 
 
 (defn render!

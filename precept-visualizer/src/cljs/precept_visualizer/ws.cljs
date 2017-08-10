@@ -1,10 +1,12 @@
-(ns precept-devtools.ws
+(ns precept-visualizer.ws
   (:require [taoensso.sente :as sente]
-            [mount.core :refer [defstate]]
-            [precept-devtools.graph :as graph]))
+            [mount.core :refer [defstate]]))
 
 (defstate socket
-  :start (sente/make-channel-socket! "/chsk" {:type :auto}))
+  :start (sente/make-channel-socket!
+           "/chsk"
+           {:host "localhost:3000"
+            :type :auto}))
 
 (defmulti handle-message first)
 (defmethod handle-message :chsk/ws-ping [_])

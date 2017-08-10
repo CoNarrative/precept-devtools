@@ -3,6 +3,7 @@
             [precept.rules :refer [fire-rules rule define session]]
             [precept.dsl :refer [<- entity entities]]
             [precept.accumulators :as acc]
+            [precept.repl :as repl]
             ;[precept.util :refer [insert! insert-unconditional! insert]]
             [precept-devtools.schema :refer [db-schema]]))
 
@@ -11,15 +12,15 @@
   =>
   (println "Fact " ?fact))
 
-(comment
-  (rule matches-for-event-number
-    [[_ :ui/matches-for-event-number ?n]]
-    [[?e :event/number ?n]]
-    [[?e :event/match ?fact-ref]]
-    [[?fact-ref :fact/string ?v]]
-    =>
-    (println ?v))
+(rule matches-for-event-number
+  [[_ :ui/matches-for-event-number ?n]]
+  [[?e :event/number ?n]]
+  [[?e :event/match ?fact-ref]]
+  [[?fact-ref :fact/string ?v]]
+  =>
+  (println ?v))
 
+(comment
   (rule facts-added-for-event-number
     [[_ :ui/facts-added-for-event-number ?n]]
     [[?e :event/number ?n]]

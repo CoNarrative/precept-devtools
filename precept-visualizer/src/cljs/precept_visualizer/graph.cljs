@@ -1,14 +1,19 @@
-(ns precept-devtools.graph)
+(ns precept-visualizer.graph)
+    ;(:require [precept.core :as core]))
+
+;(def change-ch (core/create-change-report-ch))
 
 
-
-(defn fact-node [fact-id parent-eid tuple]
+(defn fact-node
+  [fact-id parent-eid tuple]
   {:data (merge {:id fact-id :parent parent-eid} tuple)})
 
-(defn entity-container-node [eid]
+(defn entity-container-node
+  [eid]
  {:data (merge {:id eid})})
 
-(defn edge [id source target]
+(defn edge
+  [id source target]
   {:data {:id id
           :source source
           :target target}})
@@ -26,13 +31,17 @@
 
 (def make-label (memoize make-label*))
 
-(defn update-batch
+(defn start-batch-update! [] (.-startBatch js/cytoscape))
+
+(defn end-batch-update! [] (.-endBatch js/cytoscape))
+
+(defn update-batch!
   [fs]
   "Calls sequence of cytoscape functions that update the existing graph.
   http://js.cytoscape.org/#cy.batch "
-  (.-startBatch js/cytoscape)
+  (start-batch-update!)
   (doseq [f fs] (f))
-  (.-endBatch js/cytoscape))
+  (end-batch-update!))
 
 ; Supposing Tuples keyed by :e
 (defn create-elements
@@ -48,13 +57,16 @@
 
 (def body (aget (.getElementsByTagName js/document "body") 0))
 
-(let [div (.createElement js/document "div")
-      _ (set! (.-id div) "graph")
-      _ (set! (-> div .-style .-width) "800px")
-      _ (set! (-> div .-style .-height) "600px")]
-  (.appendChild body div))
+(defn append-container-div! []
+  (let [div (.createElement js/document "div")
+        _ (set! (.-id div) "graph")
+        _ (set! (-> div .-style .-width) "800px")
+        _ (set! (-> div .-style .-height) "600px")]
+    (.appendChild body div)))
 
-(defn init! [e-tuples]
+(defn init!
+  [e-tuples]
+  (append-container-div!)
   (js/cytoscape
     (clj->js
       {:container (.getElementById js/document "graph")

@@ -1,6 +1,6 @@
-(ns precept-devtools.views
+(ns precept-visualizer.views
   (:require [reagent.core :as r]
-            [precept-devtools.util :as util]))
+            [precept-visualizer.util :as util]))
 
 
 (defn rule-item [rule]

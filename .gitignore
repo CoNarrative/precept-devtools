@@ -5,3 +5,4 @@ figwheel_server.log
 /precept-devtools.iml
 precept-devtools-1.iml
 .nrepl-port
+/precept-visualizer/precept-visualizer.iml

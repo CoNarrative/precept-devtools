@@ -1,6 +1,6 @@
-(ns ^:figwheel-no-load precept-devtools.app
+(ns ^:figwheel-no-load precept-visualizer.app
   (:require
-    [precept-devtools.core :as core]
+    [precept-visualizer.core :as core]
     [figwheel.client :as figwheel :include-macros true]))
 
 (enable-console-print!)

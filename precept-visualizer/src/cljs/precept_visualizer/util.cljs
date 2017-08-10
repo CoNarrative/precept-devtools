@@ -1,4 +1,5 @@
-(ns precept-devtools.util)
+(ns precept-visualizer.util
+  (:require [cognitect.transit :as t]))
 
 
 (defmulti display-text :type)
@@ -51,3 +52,17 @@
       (do (-> (.-body js/document) (.appendChild mount-node))
           (.getElementById js/document mount-node-id)))
     (.getElementById js/document mount-node-id)))
+
+(deftype KeywordHandler []
+  Object
+  (tag [_ v] "")
+  (rep [_ v] (.-fqn v))
+  (stringRep [_ v] (.-fqn v)))
+
+(defn to-js [data {:keys [encoding handlers] :as options}]
+  (let [writer (t/writer
+                 (or encoding :json-verbose)
+                 {:handlers
+                  (merge {cljs.core/Keyword (KeywordHandler.)}
+                    (or handlers {}))})]
+    (t/write writer data)))

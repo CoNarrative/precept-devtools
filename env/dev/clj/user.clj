@@ -1,6 +1,5 @@
 (ns user
   (:require [mount.core :as mount]
-            [precept-devtools.figwheel :refer [start-fw stop-fw cljs]]
             [precept-devtools.core]))
 
 (defn start []
