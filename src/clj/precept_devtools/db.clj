@@ -1,4 +1,5 @@
 (ns precept-devtools.db)
 
 
-(def db (atom {:states []}))
+(def db (atom {:states []
+               :log []}))

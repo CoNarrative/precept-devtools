@@ -23,16 +23,23 @@
 (defmulti handle-message :id)
 
 (defmethod handle-message :chsk/uidport-open [x]
-  ((:send-fn x) (:uid x) [:devtools/init {:hello true}]))
+  (println "[devtools-server] A client connected" (:uid x)))
 
 (defmethod handle-message :devtools/update [m]
   (println "Received update: " (:uid m))
   (clojure.pprint/pprint (:?data m))
   (let [in (-> (:?data m) (.getBytes "UTF-8") (ByteArrayInputStream.))
-        r (t/read (t/reader in :json-verbose))
-        facts (txs/state->facts r)]
+        events (t/read (t/reader in :json-verbose))
+        facts (txs/state->facts events)]
+    (swap! db/db update :log conj events)
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (core/then facts)))
+
+(defmethod handle-message :states/dump [m]
+  ((:?reply-fn m) {:states (:states @db/db)}))
+
+(defmethod handle-message :log/dump [m]
+  ((:?reply-fn m) {:log (:log @db/db)}))
 
 (defmethod handle-message :chsk/handshake [_])
 (defmethod handle-message :chsk/uidport-close [_])

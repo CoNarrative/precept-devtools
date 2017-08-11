@@ -40,13 +40,13 @@
     :plugins      [[lein-figwheel "0.5.11"]]
 
     :repl-options {:init-ns user}
-    :source-paths ["env/dev/clj"]
+    :source-paths ["src/clj"]
     :resource-paths ["env/dev/resources"]
 
     :cljsbuild
     {:builds
      {:dev
-       {:source-paths ["dev" "src/cljs"]
+       {:source-paths ["dev/clj" "dev/cljs" "src/cljs"]
         :compiler
                      {:main "precept-visualizer.app"
                       :output-to "target/cljsbuild/public/js/app.js"

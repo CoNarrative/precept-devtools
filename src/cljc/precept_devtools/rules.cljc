@@ -12,6 +12,11 @@
   =>
   (println "Fact " ?fact))
 
+(rule print-max-state
+  [?n <- (acc/max :v) :from [_ :state/number]]
+  =>
+  (println "Max state number: " ?n))
+
 (rule matches-for-event-number
   [[_ :ui/matches-for-event-number ?n]]
   [[?e :event/number ?n]]

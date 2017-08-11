@@ -10,5 +10,5 @@
   :on-jsload #(do (println "Loaded.")
                   (core/render!)))
 
-(core/render!)
+(core/main)
 
