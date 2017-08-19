@@ -46,7 +46,7 @@
     :cljsbuild
     {:builds
      {:dev
-       {:source-paths ["dev/clj" "dev/cljs" "src/cljs"]
+       {:source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
         :compiler
                      {:main "precept-visualizer.app"
                       :output-to "target/cljsbuild/public/js/app.js"

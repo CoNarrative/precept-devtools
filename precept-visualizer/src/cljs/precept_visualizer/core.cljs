@@ -21,6 +21,6 @@
   (mount/start)
   (core/start! {:session visualizer-session
                 :facts [[:transient :start true]]})
-  (ws/get-log) ;; TODO. Socket not open when this runs
+  ;(ws/get-log) ;; TODO. Socket not open when this runs
   (render!))
 

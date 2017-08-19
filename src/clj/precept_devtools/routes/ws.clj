@@ -20,29 +20,59 @@
 (def chsk-send! (:send-fn socket))
 (def connected-uids (:connected-uids socket))
 
+(defn decode-payload [req]
+  (let [encoding (get-in req [:?data :encoding])
+        payload (get-in req [:?data :payload])
+        in (-> payload (.getBytes "UTF-8") (ByteArrayInputStream.))]
+    (t/read (t/reader in encoding))))
+
+(defn visualizer-client? [x]
+  (get-in x [:ring-req :params :visualizer?]))
+
 (defmulti handle-message :id)
 
 (defmethod handle-message :chsk/uidport-open [x]
-  (println "[devtools-server] A client connected" (:uid x)))
+  (println "[devtools-server] A client connected" (:uid x))
+  (when (visualizer-client? x)
+      (swap! db/db update :visualizer-uids
+        (fn [y] (into #{} (conj y (:uid x))))))
+  (println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
 
 (defmethod handle-message :devtools/update [m]
-  (println "Received update: " (:uid m))
-  (clojure.pprint/pprint (:?data m))
-  (let [in (-> (:?data m) (.getBytes "UTF-8") (ByteArrayInputStream.))
-        events (t/read (t/reader in :json-verbose))
+  (println "Received update from app: " (:uid m))
+  (let [events (decode-payload m)
         facts (txs/state->facts events)]
+    ;; TODO. Concat? flat list but no get state by index n
     (swap! db/db update :log conj events)
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
-    (core/then facts)))
+    (core/then facts)
+    (doseq [x (:visualizer-uids @db/db)]
+      ((:send-fn m) x [:state/update facts]))))
+
+(defmethod handle-message :devtools/schemas [m]
+  (println "Received schemas from app: " (:uid m))
+  (let [schemas (decode-payload m)
+        combined-schemas (remove nil? (concat (:db schemas) (:client schemas)))]
+    (swap! db/db assoc :schemas combined-schemas)))
 
 (defmethod handle-message :states/dump [m]
-  ((:?reply-fn m) {:states (:states @db/db)}))
+  ((:?reply-fn m) {:payload (:states @db/db)}))
 
 (defmethod handle-message :log/dump [m]
-  ((:?reply-fn m) {:log (:log @db/db)}))
+  ((:?reply-fn m) {:payload (:log @db/db)}))
+
+(defmethod handle-message :schemas/get [m]
+  ((:?reply-fn m) {:payload (:schemas @db/db)}))
+;(reset! db/db {})
+
+(defmethod handle-message :chsk/uidport-close [x]
+  (println "[devtools-server] A client disconnected" (:uid x))
+  (when (visualizer-client? x)
+    (swap! db/db update :visualizer-uids
+      (fn [y] (into #{} (disj y (:uid x))))))
+  (println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
 
 (defmethod handle-message :chsk/handshake [_])
-(defmethod handle-message :chsk/uidport-close [_])
 (defmethod handle-message :chsk/ws-ping [_])
 (defmethod handle-message :chsk/bad-event [m]
   (println "Bad event: ")

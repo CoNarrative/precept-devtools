@@ -10,6 +10,7 @@
         (sente/make-channel-socket!
           path
           {:host host
+           :params {:visualizer? true}
            :type :auto})]
     (def chsk       chsk)
     (def ch-chsk    ch-recv)
@@ -33,8 +34,20 @@
         (println "[visualizer] :states/dump" reply)
         (println "Error" reply)))))
 
+(defn get-schemas []
+  ((:send-fn @socket) [:schemas/get]
+    5000
+    (fn [reply]
+      (if (sente/cb-success? reply)
+        (println "[visualizer] :schemas/get" reply)
+        (println "Error" reply)))))
+
 (defmulti handle-message first)
 (defmethod handle-message :chsk/ws-ping [_])
+
+(defmethod handle-message :state/update [[_ payload]]
+  (cljs.pprint/pprint payload)
+  (core/then payload))
 
 (defmulti handle-event :id)
 

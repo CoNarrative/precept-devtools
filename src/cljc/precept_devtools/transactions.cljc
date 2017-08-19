@@ -1,4 +1,5 @@
-(ns precept-devtools.transactions)
+(ns precept-devtools.transactions
+  (:require [precept.listeners :as l]))
 
 
 (defn mk-id [] (java.util.UUID/randomUUID))
@@ -119,13 +120,29 @@
                           :event/rule (:db/id rule-tx)
                           :event/action action))))))
 
+(defn events->diff
+  [events]
+  (-> events
+    (l/split-ops)
+    (l/diff-ops)))
+
+(defn diff-with-str-facts
+  [events]
+  (reduce
+    (fn [acc [k v]]
+        (assoc acc k (mapv str v)))
+    {}
+    (events->diff events)))
+
 (defn state->facts
-  [state]
-  (let [{:keys [state-id state-number]} (first state)
+  [events]
+  (let [{:keys [state-id state-number]} (first events)
         state-tx (create-state-tx (mk-id) state-id state-number)
-        *eid->fact-str (atom {})
-        event-txs (mapcat #(event->facts *eid->fact-str %) state)]
+        *fact-str->eid (atom {})
+        event-txs (mapcat #(event->facts *fact-str->eid %) events)
+        state-diff (diff-with-str-facts events)]
     (conj event-txs
       (assoc state-tx :state/events
-                      (mapv :db/id (filter :event/number event-txs))))))
-
+                      (mapv :db/id (filter :event/number event-txs))
+                      :state/added (:added state-diff)
+                      :state/removed (:removed state-diff)))))

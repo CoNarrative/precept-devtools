@@ -1,5 +1,6 @@
 (ns precept-visualizer.views
   (:require [reagent.core :as r]
+            [precept.core :as core]
             [precept-visualizer.util :as util]))
 
 
@@ -37,8 +38,13 @@
               av)]])
      store)])
 
+(defn header []
+  (let [data @(core/subscribe [:header])]
+    [:div (str "State: " (:tracked-state-number data))]))
+
 (defn main-container [{:keys [rules store] :as precept-state}]
   [:div
+   [header]
    [:h4 "Rules"]
    [rule-list (vals @rules)]
    [state-tree @store]])

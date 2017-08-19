@@ -10,12 +10,18 @@
 (rule print-all-facts
   [?fact <- [_ :all]]
   =>
-  (println "Fact " ?fact))
+  (do nil))
+  ;(println "Fact " ?fact))
 
 (rule print-max-state
   [?n <- (acc/max :v) :from [_ :state/number]]
   =>
   (println "Max state number: " ?n))
+
+(rule print-added-facts-from-diff
+  [[_ :state/added ?v]]
+  =>
+  (println "Added" ?v))
 
 (rule matches-for-event-number
   [[_ :ui/matches-for-event-number ?n]]

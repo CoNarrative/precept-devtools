@@ -1,5 +1,5 @@
-(ns precept-devtools.schema
-    (:require [precept.schema :refer [attribute]]))
+(ns precept-visualizer.schema
+   (:require [precept.schema :refer [attribute]]))
 
 
 ; Attribute names are pluralized for one-to-many rels and
@@ -9,7 +9,6 @@
 ; so it can still be confusing, but hopefully less confusing
 (defn mk-db-schema []
   [
-   ;; User
    (attribute :user/id
      :db.type/uuid
      :db/unique :db.unique/identity)
@@ -39,7 +38,7 @@
 
    ;; Event
    (attribute :event/type
-      :db.type/keyword)
+     :db.type/keyword)
 
    (attribute :event/number
      :db.type/long)
@@ -53,9 +52,9 @@
      :db/cardinality :db.cardinality/many)
 
    (attribute :event/bindings
-      :db.type/ref
-      :db/isComponent true
-      :db/cardinality :db.cardinality/many)
+     :db.type/ref
+     :db/isComponent true
+     :db/cardinality :db.cardinality/many)
 
    (attribute :event/facts
      :db.type/ref
@@ -78,7 +77,7 @@
      :db.type/string)
 
    (attribute :rule/props
-      :db.type/string)
+     :db.type/string)
 
    (attribute :rule/lhs
      :db.type/ref
@@ -102,7 +101,7 @@
      :db/cardinality :db.cardinality/many)
 
    (attribute :condition/fact-binding
-      :db.type/keyword)
+     :db.type/keyword)
 
    ;; Binding
    (attribute :binding/variable
