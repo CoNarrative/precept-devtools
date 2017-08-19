@@ -7,7 +7,8 @@
   {:group :action}
   [[:transient :start true]]
   =>
-  (insert-unconditional! [[:global :tracking/sync? true]]))
+  (insert-unconditional! [[:global :tracking/sync? true]
+                          [:global :view/mode :diff]]))
 
 (rule print-facts
   [?fact <- [_ :all]]
@@ -40,6 +41,19 @@
   {:tracking/sync? ?bool
    :tracking/state-number ?n
    :max-state-number ?max})
+
+(defsub :diff-view
+  [[:global :view/mode :diff]]
+  ;; just marshalling for now, nothing derived. Move to upstream rule
+  ;; once enriching
+  [[_ :tracking/state-number ?n]]
+  [[?state :state/number ?n]]
+  [[?state :state/added ?added]]
+  [[?state :state/removed ?removed]]
+  =>
+  {:state/added ?added
+   :state/removed ?removed})
+
 
 (session visualizer-session
   'precept-visualizer.rules)

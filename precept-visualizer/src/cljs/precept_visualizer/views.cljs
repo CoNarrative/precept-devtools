@@ -39,6 +39,15 @@
      store)])
 
 
+(defn diff-view []
+ (let [{:keys [state/added state/removed]} @(core/subscribe [:diff-view])]
+   [:div
+     [:h1 "Diff"]
+     [:h3 "Added"]
+     [:div (str added)]
+     [:h3 "Removed"]
+     [:div (str removed)]]))
+
 
 (defn header []
   (let [{:keys [tracking/state-number tracking/sync?
@@ -65,6 +74,7 @@
 (defn main-container [{:keys [rules store] :as precept-state}]
   [:div
    [header]
+   [diff-view]
    [:h4 "Rules"]
    [rule-list (vals @rules)]
    [state-tree @store]])
