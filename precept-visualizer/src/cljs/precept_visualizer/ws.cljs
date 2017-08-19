@@ -46,7 +46,6 @@
 (defmethod handle-message :chsk/ws-ping [_])
 
 (defmethod handle-message :state/update [[_ payload]]
-  (cljs.pprint/pprint payload)
   (core/then payload))
 
 (defmulti handle-event :id)

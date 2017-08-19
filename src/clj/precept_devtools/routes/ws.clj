@@ -63,7 +63,6 @@
 
 (defmethod handle-message :schemas/get [m]
   ((:?reply-fn m) {:payload (:schemas @db/db)}))
-;(reset! db/db {})
 
 (defmethod handle-message :chsk/uidport-close [x]
   (println "[devtools-server] A client disconnected" (:uid x))

@@ -38,9 +38,29 @@
               av)]])
      store)])
 
+
+
 (defn header []
-  (let [data @(core/subscribe [:header])]
-    [:div (str "State: " (:tracked-state-number data))]))
+  (let [{:keys [tracking/state-number tracking/sync?
+                max-state-number]} @(core/subscribe [:header])]
+    [:div {:style {:display "flex"}}
+     [:button
+      {:on-click
+                 #(core/then [[:global :tracking/sync? false]
+                              [:global :tracking/state-number (dec state-number)]])
+       :disabled (= state-number 0)}
+      "-"]
+     [:div (str "State: " state-number)]
+     [:button
+      {:on-click
+       #(core/then [[:global :tracking/sync? false]
+                    [:global :tracking/state-number (inc state-number)]])
+       :disabled (= max-state-number state-number)}
+      "+"]
+     [:input {:type "checkbox"
+              :checked sync?
+              :on-change #(core/then [:global :tracking/sync? (not sync?)])}]
+     [:div "Sync mode"]]))
 
 (defn main-container [{:keys [rules store] :as precept-state}]
   [:div

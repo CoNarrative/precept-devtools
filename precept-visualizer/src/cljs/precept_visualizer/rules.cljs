@@ -1,8 +1,13 @@
 (ns precept-visualizer.rules
   (:require [precept.rules :refer [rule define session defsub]]
-            [precept.util :refer [insert!]]
+            [precept.util :refer [insert! retract! insert-unconditional!]]
             [precept.accumulators :as acc]))
 
+(rule initial-facts
+  {:group :action}
+  [[:transient :start true]]
+  =>
+  (insert-unconditional! [[:global :tracking/sync? true]]))
 
 (rule print-facts
   [?fact <- [_ :all]]
@@ -21,16 +26,20 @@
   (insert! [:global :max-state-number ?n])
   (println "max state number" ?n))
 
-(rule tracked-state-number
-  [:not [_ :ui/requested-state-number]]
-  [[:global :max-state-number ?n]]
+(rule when-sync-tracking-latest-state
+  [[:global :tracking/sync? true]]
+  [[_ :max-state-number ?max]]
   =>
-  (insert! [:global :tracked-state-number ?n]))
+  (insert-unconditional! [:global :tracking/state-number ?max]))
 
 (defsub :header
-  [[_ :tracked-state-number ?n]]
+  [[_ :tracking/state-number ?n]]
+  [[_ :tracking/sync? ?bool]]
+  [[_ :max-state-number ?max]]
   =>
-  {:tracked-state-number ?n})
+  {:tracking/sync? ?bool
+   :tracking/state-number ?n
+   :max-state-number ?max})
 
 (session visualizer-session
   'precept-visualizer.rules)
