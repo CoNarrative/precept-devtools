@@ -38,20 +38,31 @@
               av)]])
      store)])
 
+(defn explanation-action [payload]
+  [:div {:style {:display "flex" :flex-direction "column"}}
+   [:div {:style {:display "flex" :justify-content "space-between"}}
+    [:div (str "State " (:explanation/state-number payload))]
+    [:div (str "Event " (:explanation/event-number payload))]]
+   [:div (str (:explanation/fact-str payload)
+           " was " (:explanation/event-type payload) " unconditionally ")]])
+
+
 (defn explanation [payload]
   (let [;{:keys [payload] :as rs} @(core/subscribe [:explanation])
         explanation payload
         conditions (:explanation/conditions explanation)
         bindings (first (:explanation/bindings explanation))
         rule (-> explanation :explanation/rule first)]
-    (if (nil? payload) nil
+    (cond
+      (nil? payload) nil
+      (:explanation/action payload) [explanation-action payload]
+      :default
       [:div {:style {:display "flex" :flex-direction "column"}}
         ;[:div [:pre (with-out-str (cljs.pprint/pprint payload))]
        [:div {:style {:display "flex" :justify-content "space-between"}}
          [:div (str "State " (:explanation/state-number explanation))]
          [:div (str "Event " (:explanation/event-number explanation))]]
        [:div (str (:explanation/fact-str explanation)
-               ; TODO. op-type
                " was " (:explanation/event-type explanation) " because the conditions ")]
        [:div
          (for [{:keys [condition/type condition/fact-binding condition/constraints]} conditions]
@@ -84,8 +95,8 @@
               :on-click #(core/then {:db/id (random-uuid)
                                      :explaining/fact fact-str})}
                                      ;:explaining/state-number })}
-        [:code (str fact-str)]
-        [explanation]])
+        [:code (str fact-str)]])
+        ;[explanation]])
      [:h3 "Removed"]
      (if (empty? removed)
        [:div "None"]
@@ -115,8 +126,9 @@
         [:div {:style {:height "25px"}}]
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]
-         (for [x payload]
-           ^{:key (:db/id x)} [explanation x])
+         [:div {:style {:display "flex" :flex-direction "column"}}
+           (for [x payload]
+             ^{:key (:db/id x)} [explanation x])]
          [:div {:style {:min-width "15px"}}]]]])))
 
 (defn header []

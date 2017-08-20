@@ -39,6 +39,38 @@
   ; Assert the explanation fulfills the request
   (insert-unconditional! [?explanation-id :explanation/request-id ?request-id]))
 
+(rule explain-unexplained-action
+  [[?request-id :explaining/fact ?fact-str]]
+  [[:global :tracking/state-number ?state-number]]
+  [[?state-id :state/number ?state-number]]
+  [[?fact-id :fact/string ?fact-str]]
+  [[?state-id :state/events ?event-id]]
+  [[?event-id :event/facts ?fact-id]]
+
+  ; These should be mutex but just to be sure
+  [:not [?event-id :event/rule]]
+  [[?event-id :event/action true]]
+
+  ; No explanation exists
+  [:not [:and [_ :explanation/fact-id ?fact-id]
+              [_ :explanation/state-id ?state-id]
+              [_ :explanation/event-id ?event-id]]]
+
+  [[?event-id :event/type ?event-type]]
+  [[?event-id :event/number ?event-number]]
+  =>
+  (insert-unconditional!
+    (merge {:db/id (util/guid)}
+      {:explanation/request-id ?request-id
+       :explanation/state-id ?state-id
+       :explanation/event-id ?event-id
+       :explanation/fact-id ?fact-id
+       :explanation/event-type ?event-type
+       :explanation/state-number ?state-number
+       :explanation/event-number ?event-number
+       :explanation/fact-str ?fact-str
+       :explanation/action true})))
+
 (rule on-explain-request
   {:group :action}
   [[?request-id :explaining/fact ?fact-str]]
@@ -57,6 +89,8 @@
 
   ; No explanation exists
   ; TODO. ?explanation-id should be in first slot but Clara throws previously unbound variable error
+  ; Parsing appears correct in tests
+  ; Appears because inside :not, can't form new binding
   [:not [:and [_ :explanation/fact-id ?fact-id]
               [_ :explanation/state-id ?state-id]
               [_ :explanation/event-id ?event-id]]]
@@ -101,7 +135,7 @@
 
 (rule bindings-for-explain-request
   [[?explanation-id :explanation/request-id ?request-id]]
-  [?binding-ids <- (acc/all :v) :from [?request-id :explanation/binding-ids]]
+  [?binding-ids <- (acc/all :v) :from [?explanation-id :explanation/binding-ids]]
   [(<- ?bindings (entities ?binding-ids))]
   =>
   (insert! [?explanation-id :explanation/bindings ?bindings]))
