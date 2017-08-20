@@ -12,7 +12,6 @@
                  [org.clojure/core.async "0.3.442"]
                  [mount "0.1.11"]
                  [precept "0.4.0-alpha"]
-                 [prismatic/schema "1.1.6"]
                  [reagent "0.6.0"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]]

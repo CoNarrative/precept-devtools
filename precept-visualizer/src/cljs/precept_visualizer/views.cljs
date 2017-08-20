@@ -39,8 +39,29 @@
      store)])
 
 (defn explanation []
-  (let [{:keys [payload] :as rs} @(core/subscribe [:explanation])]
-    [:div (str payload rs)]))
+  (let [{:keys [payload] :as rs} @(core/subscribe [:explanation])
+        explanation (first payload)
+        conditions (:explanation/conditions explanation)
+        bindings (first (:explanation/bindings explanation))
+        rule (-> explanation :explanation/rule first)]
+    (if (nil? payload) nil
+      [:div [:pre (with-out-str (cljs.pprint/pprint payload))]
+       [:div (str (:explain/request explanation)
+               ; TODO. op-type
+               " was inserted because the conditions ")]
+       [:div
+         (for [{:keys [condition/type condition/fact-binding condition/constraints]} conditions]
+           [:div {:key constraints}
+            [:ol
+             [:li (str "type " type)
+              (some->> fact-binding #(str "with fact-binding "))
+              " where " constraints]]])]
+       [:div "of rule " (-> rule :rule/display-name)]
+       [:div "in namespace " (-> rule :rule/ns)]
+       [:div "matched " (-> explanation :explanation/matched-fact)]
+       [:div "and the rule executed " (-> rule :rule/rhs)]
+       [:div "with " (subs (-> bindings :binding/variable) 1)
+        " bound to " (-> bindings :binding/value)]])))
 
 (defn diff-view []
  (let [{:keys [state/added state/removed]} @(core/subscribe [:diff-view])]
@@ -49,10 +70,7 @@
      [:h3 "Added"]
      (for [fact-str added]
        [:div {:key fact-str
-              :on-click (fn [_]
-                          (let [id (random-uuid)]
-                            (core/then [id :explain/request fact-str])))}
-
+              :on-click #(core/then [(random-uuid) :explain/request fact-str])}
         [:code (str fact-str)]
         [explanation]])
      [:h3 "Removed"]

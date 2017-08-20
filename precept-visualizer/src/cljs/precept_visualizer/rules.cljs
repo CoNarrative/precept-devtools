@@ -1,9 +1,9 @@
 (ns precept-visualizer.rules
+  (:require-macros [precept.dsl :refer [<- entity entities]])
   (:require [precept.rules :refer [rule define session defsub]]
             [precept.util :refer [insert! retract! insert-unconditional!]]
             [precept.accumulators :as acc]
-            [precept-visualizer.schema :refer [db-schema]])
-  (:require-macros [precept.dsl :refer [<- entity entities]]))
+            [precept-visualizer.schema :refer [db-schema client-schema]]))
 
 (rule initial-facts
   {:group :action}
@@ -33,28 +33,48 @@
 
   ; Pull its LHS so we can get to the conditions
   [[?rule-id :rule/lhs ?lhs-id]]
-  [[?lhs-id :lhs/conditions ?condition-ids]]
+  ;[[?lhs-id :lhs/conditions ?condition-ids]]
+  [?condition-ids <- (acc/all :v) :from [?lhs-id :lhs/conditions]]
   ; Pull its conditions
   ;[(<- ?conditions (entities ?condition-ids))]
 
-  [[?event-id :event/bindings ?binding-ids]]
+  [?binding-ids <- (acc/all :v) :from [?event-id :event/bindings]]
+  ;[[?event-id :event/bindings ?binding-ids]]
   ;[(<- ?bindings (entities ?binding-ids))]
+  ; Pull match refs
+  ;[?match-ids <- (acc/all :v) :from [?event-id :event/matches]]
+  ; Seems like match should be one-to-one but modeled as one-to-many
+  [[?event-id :event/matches ?match-id]]
+  [[?match-id :match/fact ?matched-fact-id]]
+  [[?matched-fact-id :fact/string ?matched-fact-str]]
 
   [(<- ?rule (entity ?rule-id))]
   =>
   (println "Explain"
-    ?fact-id ?state-number ?state-id ?event-id ?rule-id ?rule ?lhs-id)
+    ?fact-id ?state-number ?state-id ?event-id ?rule-id ?rule ?lhs-id ?binding-ids ?condition-ids)
   (insert-unconditional! {:db/id ?request-id
-                          :explain/response ?rule
-                          :explain/binding-ids ?binding-ids
-                          :explain/condition-ids ?condition-ids}))
+                          :explanation/rule ?rule
+                          :explanation/binding-ids ?binding-ids
+                          :explanation/condition-ids ?condition-ids
+                          :explanation/matched-fact ?matched-fact-str}))
 
-;(rule explain-binding-ids-for-explain-request
-;  [[?request-id :explain/binding-ids ?binding-ids]]
-;  [[?request-id :explain/response ?m]]
-;  (<- ?bindings (entities ?binding-ids))
-;  =>
-;  (insert-unconditional! [?request-id :explain/response (assoc ?m :bindings ?bindings)]))
+(rule bindings-for-explain-request
+  [[?request-id :explain/request]]
+  ; TODO. request-id must be declared separately, but should be able to be bound
+  ; via accumulator only
+  [?binding-ids <- (acc/all :v) :from [?request-id :explanation/binding-ids]]
+  [(<- ?bindings (entities ?binding-ids))]
+  =>
+  (println "[explanation] Bindingss" ?bindings ?binding-ids ?request-id)
+  (insert-unconditional! [?request-id :explanation/bindings ?bindings]))
+
+(rule conditions-for-explain-request
+  [[?request-id :explain/request]]
+  [?condition-ids <- (acc/all :v) :from [?request-id :explanation/condition-ids]]
+  [(<- ?conditions (entities ?condition-ids))]
+  =>
+  (println "[explanation] Conditionss" ?conditions ?condition-ids)
+  (insert-unconditional! [?request-id :explanation/conditions ?conditions]))
 ;
 ;(rule explain-condition-ids-for-explain-request
 ;  [[?request-id :explain/condition-ids ?condition-ids]]
@@ -110,7 +130,7 @@
 
 (defsub :explanation
   [[?request-id :explain/request]]
-  [[?request-id :explain/response ?response]]
+  [?response <- (acc/all) :from [?request-id :all]]
   =>
   {:payload ?response})
 
@@ -118,4 +138,5 @@
 (session visualizer-session
   'precept-visualizer.rules
   :db-schema db-schema
+  :client-schema client-schema
   :reload true)

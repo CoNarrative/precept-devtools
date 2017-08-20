@@ -132,7 +132,21 @@
    (attribute :fact/t
      :db.type/long)])
 
+(defn mk-client-schema []
+  [
+    (attribute :explanation/binding-ids
+       :db.type/ref
+       :db/cardinality :db.cardinality/many)
+
+    (attribute :explanation/match-ids
+       :db.type/ref
+       :db/cardinality :db.cardinality/many)
+
+    (attribute :explanation/condition-ids
+       :db.type/ref
+       :db/cardinality :db.cardinality/many)])
 
 (def db-schema (mk-db-schema))
+(def client-schema (mk-client-schema))
 
 

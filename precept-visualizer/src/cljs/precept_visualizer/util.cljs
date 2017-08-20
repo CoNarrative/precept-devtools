@@ -42,7 +42,7 @@
                               "bottom: 0px;"
                               "left: 0px;"
                               "height: 100%;"
-                              "width: 60%;"
+                              "width: 100%;"
                               "opacity: 1.0;"
                               "overflow: scroll;"
                               "background: aliceblue;"
