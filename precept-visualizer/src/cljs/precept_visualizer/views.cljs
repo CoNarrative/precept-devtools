@@ -38,17 +38,21 @@
               av)]])
      store)])
 
-(defn explanation []
-  (let [{:keys [payload] :as rs} @(core/subscribe [:explanation])
-        explanation (first payload)
+(defn explanation [payload]
+  (let [;{:keys [payload] :as rs} @(core/subscribe [:explanation])
+        explanation payload
         conditions (:explanation/conditions explanation)
         bindings (first (:explanation/bindings explanation))
         rule (-> explanation :explanation/rule first)]
     (if (nil? payload) nil
-      [:div [:pre (with-out-str (cljs.pprint/pprint payload))]
-       [:div (str (:explain/request explanation)
+      [:div {:style {:display "flex" :flex-direction "column"}}
+        ;[:div [:pre (with-out-str (cljs.pprint/pprint payload))]
+       [:div {:style {:display "flex" :justify-content "space-between"}}
+         [:div (str "State " (:explanation/state-number explanation))]
+         [:div (str "Event " (:explanation/event-number explanation))]]
+       [:div (str (:explanation/fact-str explanation)
                ; TODO. op-type
-               " was inserted because the conditions ")]
+               " was " (:explanation/event-type explanation) " because the conditions ")]
        [:div
          (for [{:keys [condition/type condition/fact-binding condition/constraints]} conditions]
            [:div {:key constraints}
@@ -58,10 +62,17 @@
               " where " constraints]]])]
        [:div "of rule " (-> rule :rule/display-name)]
        [:div "in namespace " (-> rule :rule/ns)]
-       [:div "matched " (-> explanation :explanation/matched-fact)]
+       [:div "matched the fact " (-> explanation :explanation/matched-fact)]
        [:div "and the rule executed " (-> rule :rule/rhs)]
        [:div "with " (subs (-> bindings :binding/variable) 1)
         " bound to " (-> bindings :binding/value)]])))
+
+(defn fact [fact-str]
+  [:div {:on-click #(core/then {:db/id (random-uuid)
+                                :explaining/fact fact-str})}
+                                ;:explaining/state-number })}
+    [:code (str fact-str)]])
+          ;[explanation]}])
 
 (defn diff-view []
  (let [{:keys [state/added state/removed]} @(core/subscribe [:diff-view])]
@@ -70,14 +81,43 @@
      [:h3 "Added"]
      (for [fact-str added]
        [:div {:key fact-str
-              :on-click #(core/then [(random-uuid) :explain/request fact-str])}
+              :on-click #(core/then {:db/id (random-uuid)
+                                     :explaining/fact fact-str})}
+                                     ;:explaining/state-number })}
         [:code (str fact-str)]
         [explanation]])
      [:h3 "Removed"]
-     (for [fact-str removed]
-      [:div {:key fact-str}
-       [:code (str fact-str)]])]))
+     (if (empty? removed)
+       [:div "None"]
+       (for [fact-str removed]
+        [:div {:key fact-str}
+         [:code (str fact-str)]]))]))
 
+(defn explanations []
+  (let [{:keys [payload]} @(core/subscribe [:explanations])]
+    (if (empty? payload) nil
+      [:div {:style {:position "absolute"
+                     :top 0
+                     :width "25vw"
+                     :height "100%"
+                     :right 0
+                     :background "#eee"}}
+       [:div {:style {:display "flex" :flex-direction "column"}}
+        [:h1 {:style {:align-self "center"}}
+         "Explanations"]
+        [:button {:style {:background "#fff"
+                          :align-self "flex-end"
+                          :border "1px solid black"
+                          :padding "4px 8px"
+                          :border-radius "5px"}
+                  :on-click #(core/then [:transient :clear-all-explanations true])}
+         "Clear all"]
+        [:div {:style {:height "25px"}}]
+        [:div {:style {:display "flex" :flex-direction "row"}}
+         [:div {:style {:min-width "15px"}}]
+         (for [x payload]
+           ^{:key (:db/id x)} [explanation x])
+         [:div {:style {:min-width "15px"}}]]]])))
 
 (defn header []
   (let [{:keys [tracking/state-number tracking/sync?
@@ -99,12 +139,20 @@
      [:input {:type "checkbox"
               :checked sync?
               :on-change #(core/then [:global :tracking/sync? (not sync?)])}]
-     [:div "Sync mode"]]))
+     [:div "Sync mode"]
+     [:input {:type "range"
+              :min 0
+              :max max-state-number
+              :value state-number
+              :on-change #(core/then [[:global :tracking/sync? false]
+                                      [:global :tracking/state-number
+                                       (-> % .-target .-value js/Number)]])}]]))
 
 (defn main-container [{:keys [rules store] :as precept-state}]
   [:div
    [header]
    [diff-view]
+   [explanations]
    [:h4 "Rules"]
    [rule-list (vals @rules)]
    [state-tree @store]])
