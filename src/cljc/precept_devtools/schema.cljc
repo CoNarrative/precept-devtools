@@ -24,8 +24,8 @@
 
    (attribute :state/events
      :db.type/ref
-     :db/isComponent true
-     :db/cardinality :db.cardinality/many)
+     :db/cardinality :db.cardinality/many
+     :db/isComponent true)
 
    ;(attribute :state/added
    ;   :db.type/ref
@@ -49,13 +49,13 @@
 
    (attribute :event/matches
      :db.type/ref
-     :db/isComponent true
-     :db/cardinality :db.cardinality/many)
+     :db/cardinality :db.cardinality/many
+     :db/isComponent true)
 
    (attribute :event/bindings
       :db.type/ref
-      :db/isComponent true
-      :db/cardinality :db.cardinality/many)
+      :db/cardinality :db.cardinality/many
+      :db/isComponent true)
 
    (attribute :event/facts
      :db.type/ref
@@ -87,8 +87,8 @@
    ;; LHS
    (attribute :lhs/conditions
      :db.type/ref
-     :db/isComponent true
-     :db/cardinality :db.cardinality/many)
+     :db/cardinality :db.cardinality/many
+     :db/isComponent true)
 
    ;; Condition
    (attribute :condition/index

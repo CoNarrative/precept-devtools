@@ -86,8 +86,8 @@
    ;; LHS
    (attribute :lhs/conditions
      :db.type/ref
-     :db/isComponent true
-     :db/cardinality :db.cardinality/many)
+     :db/cardinality :db.cardinality/many
+     :db/isComponent true)
 
    ;; Condition
    (attribute :condition/index

@@ -35,11 +35,12 @@
     #:lhs{:conditions condition-refs}))
 
 (defn create-rule-tx
-  [temp-id name ns-name display-name rhs props]
+  [temp-id name ns-name display-name rhs props lhs-ref]
   (into {:db/id temp-id}
     #:rule{:name name
            :ns (str ns-name)
            :display-name display-name
+           :lhs lhs-ref
            :rhs (str rhs)
            :props (str props)}))
 
@@ -78,10 +79,6 @@
         _ (update-tx-facts! *tx-facts
             (mapcat #(vector (:fact/string %) (:db/id %))
               fact-txs))
-        rule-tx (when (not action)
-                  (vector
-                    (create-rule-tx (mk-id)
-                      name ns-name display-name `'~rhs props)))
         bindings-txs (mapv #(create-binding-tx (mk-id) %) bindings)
         conditions-txs (->> lhs
                          (map-indexed
@@ -104,6 +101,11 @@
         lhs-tx (when (not action)
                  (vector
                    (create-lhs-tx (mk-id) condition-refs)))
+        lhs-ref (:db/id (first lhs-tx))
+        rule-tx (when (not action)
+                  (vector
+                    (create-rule-tx (mk-id)
+                      name ns-name display-name `'~rhs props lhs-ref)))
         event-tx (create-event-tx (mk-id) type event-number)]
     (conj
       (concat fact-txs rule-tx bindings-txs conditions-txs matches-txs lhs-tx)
@@ -117,7 +119,7 @@
           (assoc event-tx :event/matches (mapv :db/id matches-txs)
                           :event/bindings (mapv :db/id bindings-txs)
                           :event/facts (mapv :db/id fact-txs)
-                          :event/rule (:db/id rule-tx)
+                          :event/rule (:db/id (first rule-tx))
                           :event/action action))))))
 
 (defn events->diff

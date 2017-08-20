@@ -38,15 +38,27 @@
               av)]])
      store)])
 
+(defn explanation []
+  (let [{:keys [payload] :as rs} @(core/subscribe [:explanation])]
+    [:div (str payload rs)]))
 
 (defn diff-view []
  (let [{:keys [state/added state/removed]} @(core/subscribe [:diff-view])]
    [:div
      [:h1 "Diff"]
      [:h3 "Added"]
-     [:div (str added)]
+     (for [fact-str added]
+       [:div {:key fact-str
+              :on-click (fn [_]
+                          (let [id (random-uuid)]
+                            (core/then [id :explain/request fact-str])))}
+
+        [:code (str fact-str)]
+        [explanation]])
      [:h3 "Removed"]
-     [:div (str removed)]]))
+     (for [fact-str removed]
+      [:div {:key fact-str}
+       [:code (str fact-str)]])]))
 
 
 (defn header []

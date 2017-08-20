@@ -33,9 +33,11 @@
 
 (defmethod handle-message :chsk/uidport-open [x]
   (println "[devtools-server] A client connected" (:uid x))
-  (when (visualizer-client? x)
-      (swap! db/db update :visualizer-uids
-        (fn [y] (into #{} (conj y (:uid x))))))
+  (if (visualizer-client? x)
+    (do
+      (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
+      ((:send-fn x) (:uid x) [:state/update (flatten (:states @db/db))]))
+    (reset! db/db {})) ; zero the db for dev
   (println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
 
 (defmethod handle-message :devtools/update [m]
