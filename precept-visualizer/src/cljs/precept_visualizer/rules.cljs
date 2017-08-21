@@ -3,6 +3,8 @@
   (:require [precept.rules :refer [rule define session defsub]]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
             [precept.accumulators :as acc]
+            [precept.orm :as orm]
+            [precept-visualizer.state :as state]
             [precept-visualizer.schema :refer [db-schema client-schema]]))
 
 (rule initial-facts
@@ -157,6 +159,17 @@
   [[_ :max-state-number ?max]]
   =>
   (insert-unconditional! [:global :tracking/state-number ?max]))
+
+; TODO.
+(rule mirror-object-store
+ [[?state-id :state/added ?additions]]
+ [[?state-id :state/removed ?removals]]
+ =>
+ (orm/update-tree!
+   state/mirrored-object-store
+   (constantly #{:one-to-one}) ; Until derive hierarchy
+   {:add (map (comp util/record->vec cljs.reader/read-string) ?additions)
+    :remove (map (comp util/record->vec cljs.reader/read-string) ?removals)}))
 
 (defsub :header
   [[_ :tracking/state-number ?n]]
