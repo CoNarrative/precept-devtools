@@ -147,23 +147,10 @@
   =>
   (insert! [?explanation-id :explanation/conditions ?conditions]))
 
-
-(rule print-facts
-  [?fact <- [_ :all]]
-  =>
-  (println "[visualizer] Fact " ?fact))
-
-(rule on-diff-request
-  {:group :action}
-  [[_ :diff-request]]
-  =>
-  (println "Got a diff request"))
-
 (rule max-state-number
   [?n <- (acc/max :v) :from [_ :state/number]]
   =>
-  (insert! [:global :max-state-number ?n])
-  (println "max state number" ?n))
+  (insert! [:global :max-state-number ?n]))
 
 (rule when-sync-tracking-latest-state
   [[:global :tracking/sync? true]]
@@ -191,13 +178,6 @@
   =>
   {:state/added ?added
    :state/removed ?removed})
-
-;(defsub :explanation
-;  [[?request-id :explaining/fact]]
-;  [[?explanation-id :explanation/request-id ?request-id]]
-;  [?response <- (acc/all) :from [?explanation-id :all]]
-;  =>
-;  {:payload ?response})
 
 (rule form-explanation
   [[?request-id :explaining/fact]]
