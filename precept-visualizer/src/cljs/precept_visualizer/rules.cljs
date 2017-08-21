@@ -160,17 +160,6 @@
   =>
   (insert-unconditional! [:global :tracking/state-number ?max]))
 
-; TODO.
-(rule mirror-object-store
- [[?state-id :state/added ?additions]]
- [[?state-id :state/removed ?removals]]
- =>
- (orm/update-tree!
-   state/mirrored-object-store
-   (constantly #{:one-to-one}) ; Until derive hierarchy
-   {:add (map (comp util/record->vec cljs.reader/read-string) ?additions)
-    :remove (map (comp util/record->vec cljs.reader/read-string) ?removals)}))
-
 (defsub :header
   [[_ :tracking/state-number ?n]]
   [[_ :tracking/sync? ?bool]]
@@ -191,6 +180,11 @@
   =>
   {:state/added ?added
    :state/removed ?removed})
+
+(defsub :state-tree
+  [[_ :tracking/state-number ?n]]
+  =>
+  {:state/number ?n})
 
 (rule form-explanation
   [[?request-id :explaining/fact]]

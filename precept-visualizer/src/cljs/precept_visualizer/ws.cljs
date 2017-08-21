@@ -1,6 +1,7 @@
 (ns precept-visualizer.ws
   (:require [taoensso.sente :as sente]
             [mount.core :refer [defstate]]
+            [precept-visualizer.state :as state]
             [precept.core :as core]))
 
 (declare socket)
@@ -45,8 +46,15 @@
 (defmulti handle-message first)
 (defmethod handle-message :chsk/ws-ping [_])
 
+(defmethod handle-message :visualizer/init [[_ payload]]
+  (println "Rec'd data from server")
+  (reset! state/orm-ratom (:orm-states payload))
+  (core/then (:facts payload)))
+
 (defmethod handle-message :state/update [[_ payload]]
-  (core/then payload))
+  (println "Rec'd update from server")
+  (swap! state/orm-ratom conj (:orm-state payload))
+  (core/then (:facts payload)))
 
 (defmulti handle-event :id)
 

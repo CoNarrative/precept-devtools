@@ -6,15 +6,16 @@
             [precept-visualizer.views :as views]
             [mount.core :as mount]
             [precept-visualizer.rules :refer [visualizer-session]]
-            [precept-visualizer.ws :as ws]))
+            [precept-visualizer.ws :as ws]
+            [precept-visualizer.state :as viz-state]))
 
 
 (defn render!
-  ([] (render! {:rules precept.state/rules :store precept.state/store}))
-  ([{:keys [rules store] :as precept-state}]
+  ([] (render! {:rules precept.state/rules :orm-states viz-state/orm-ratom}))
+  ([{:keys [rules orm-states]}]
    (let [mount-node-id "precept-devtools"
          mount-node (util/get-or-create-mount-node! mount-node-id)]
-     (r/render [views/main-container {:rules rules :store store}]
+     (r/render [views/main-container {:rules rules :store orm-states}]
                mount-node))))
 
 (defn main []

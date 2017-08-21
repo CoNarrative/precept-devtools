@@ -19,29 +19,31 @@
      (for [rule user-rules]
        ^{:key (:id rule)} [rule-item (util/display-text rule)])]))
 
-(defn state-tree [store]
-  [:div
-   [:h4 "State tree"]
-   [:div {:style {:display "flex" :justify-content "space-between"}}
-    [:div "e"]
-    [:div "a"]
-    [:div "v"]]
-   (map (fn [[e av]]
-          ^{:key (str e)}
-          [:div {:style {:display "flex"}}
-           [:div {:style {:margin-right 15}}
-            (subs (str e) 0 6)]
-           [:div {:style {:display "flex" :flex 1 :flex-direction "column"}}
-            (map
-              (fn [[a v]]
-                ^{:key (str e "-" a "-" (hash v))}
-                [:div {:style {:min-width "100%" :display "flex" :justify-content "space-between"}}
-                 [:div {:style {:flex 1}}
-                  (str a)]
-                 [:div {:style {:flex 1}}
-                  (with-out-str (cljs.pprint/pprint v))]])
-              av)]])
-     store)])
+(defn state-tree [*orm-states]
+  (let [sub @(core/subscribe [:state-tree])
+        tree (get @*orm-states (:state/number sub))]
+    [:div
+     [:h4 "State tree"]
+     [:div {:style {:display "flex" :justify-content "space-between"}}
+      [:div "e"]
+      [:div "a"]
+      [:div "v"]]
+     (map (fn [[e av]]
+            ^{:key (str e)}
+            [:div {:style {:display "flex"}}
+             [:div {:style {:margin-right 15}}
+              (subs (str e) 0 6)]
+             [:div {:style {:display "flex" :flex 1 :flex-direction "column"}}
+              (map
+                (fn [[a v]]
+                  ^{:key (str e "-" a "-" (hash v))}
+                  [:div {:style {:min-width "100%" :display "flex" :justify-content "space-between"}}
+                   [:div {:style {:flex 1}}
+                    (str a)]
+                   [:div {:style {:flex 1}}
+                    (with-out-str (cljs.pprint/pprint v))]])
+                av)]])
+       tree)]))
 
 (defn explanation-action [payload]
   [:div {:style {:display "flex" :flex-direction "column"}}
@@ -155,13 +157,13 @@
                                       [:global :tracking/state-number
                                        (-> % .-target .-value js/Number)]])}]]))
 
-(defn main-container [{:keys [rules store] :as precept-state}]
+(defn main-container [{:keys [rules store]}]
   [:div
    [header]
    [diff-view]
    [explanations]
    [:h4 "Rules"]
    [rule-list (vals @rules)]
-   [state-tree @store]])
+   [state-tree store]])
 
 

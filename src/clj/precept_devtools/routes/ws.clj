@@ -1,14 +1,16 @@
 (ns precept-devtools.routes.ws
     (:require [compojure.core :refer [defroutes GET POST]]
               [taoensso.sente :as sente]
-              [mount.core :refer [defstate]]
-              [cognitect.transit :as t]
-              [precept-devtools.transactions :as txs]
-              [taoensso.sente.packers.transit :as sente-transit]
               [taoensso.sente.server-adapters.http-kit :refer [get-sch-adapter]]
+              [cognitect.transit :as t]
+              [mount.core :refer [defstate]]
               [precept.core :as core]
+              [precept.orm :as orm]
+              [precept.schema :as schema]
               [precept-devtools.db :as db]
-              [precept-devtools.rules :refer [devtools-session]])
+              [precept-devtools.rules :refer [devtools-session]]
+              [precept-devtools.transactions :as txs]
+              [precept.util :as util])
     (:import [java.io ByteArrayInputStream]))
 
 (defstate socket
@@ -20,7 +22,9 @@
 (def chsk-send! (:send-fn socket))
 (def connected-uids (:connected-uids socket))
 
-(defn decode-payload [req]
+(defn decode-payload
+  "Assumes transit encoding and req map with keys :encoding, :payload"
+  [req]
   (let [encoding (get-in req [:?data :encoding])
         payload (get-in req [:?data :payload])
         in (-> payload (.getBytes "UTF-8") (ByteArrayInputStream.))]
@@ -34,28 +38,49 @@
 (defmethod handle-message :chsk/uidport-open [x]
   (println "[devtools-server] A client connected" (:uid x))
   (if (visualizer-client? x)
-    (do
+    (let [cache @db/db]
       (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
-      ((:send-fn x) (:uid x) [:state/update (flatten (:states @db/db))]))
+      ((:send-fn x) (:uid x) [:visualizer/init {:facts (flatten (:states cache))
+                                                :orm-states (:orm-states cache)}]))
     (reset! db/db {})) ; zero the db for dev
   (println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
+
+(defn update-orm-state! [facts]
+  (let [ops (select-keys
+              (first (filter #(every? % #{:state/added :state/removed}) facts))
+              [:state/added :state/removed])
+        added (->> ops :state/added (mapv (comp util/record->vec read-string)))
+        removed (->> ops :state/removed (mapv (comp util/record->vec read-string)))
+        *last-orm-state (atom (or (last (:orm-states @db/db)) {}))
+        *next-orm-state (-> *last-orm-state
+                          (orm/update-tree!
+                            (:ancestors-fn @db/db)
+                            {:remove removed})
+                          (orm/update-tree!
+                            (:ancestors-fn @db/db)
+                            {:add added}))]
+    (swap! db/db update :orm-states #(into [] (conj % @*next-orm-state)))
+    (last (:orm-states @db/db))))
 
 (defmethod handle-message :devtools/update [m]
   (println "Received update from app: " (:uid m))
   (let [events (decode-payload m)
-        facts (txs/state->facts events)]
+        facts (txs/state->facts events)
+        orm-state (update-orm-state! facts)]
     ;; TODO. Concat? flat list but no get state by index n
-    (swap! db/db update :log conj events)
+    (swap! db/db update :log #(into [] (conj % events)))
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (core/then facts)
     (doseq [x (:visualizer-uids @db/db)]
-      ((:send-fn m) x [:state/update facts]))))
+      ((:send-fn m) x [:state/update {:orm-state orm-state :facts facts}]))))
 
 (defmethod handle-message :devtools/schemas [m]
   (println "Received schemas from app: " (:uid m))
   (let [schemas (decode-payload m)
-        combined-schemas (remove nil? (concat (:db schemas) (:client schemas)))]
-    (swap! db/db assoc :schemas combined-schemas)))
+        combined-schemas (remove nil? (concat (:db schemas) (:client schemas)))
+        ancestors-fn (-> combined-schemas (schema/schema->hierarchy) (util/make-ancestors-fn))]
+    (swap! db/db assoc :schemas combined-schemas)
+    (swap! db/db assoc :ancestors-fn ancestors-fn)))
 
 (defmethod handle-message :states/dump [m]
   ((:?reply-fn m) {:payload (:states @db/db)}))

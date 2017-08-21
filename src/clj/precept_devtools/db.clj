@@ -2,4 +2,7 @@
 
 
 (def db (atom {:states []
-               :log []}))
+               :log []
+               :orm-states []
+               :schemas nil
+               :ancestors-fn nil}))
