@@ -3,11 +3,41 @@
             [precept.core :as core]
             [precept-visualizer.util :as util]))
 
-(defn pprint-serialized-str [s]
+(defn pprint-str->edn [s]
   (-> s
     (cljs.reader/read-string)
     (cljs.pprint/pprint)
     (with-out-str)))
+
+(defn render-diff [];added-strs removed-strs]
+  (let [;added (map cljs.reader/read-string added-strs)
+        ;removed (map cljs.reader/read-string removed-strs)
+        added [{:e 1 :a :foo :v 2 :t 3}]
+        removed [{:e 1 :a :foo :v 1 :t 4}]
+        ; Reduce into m with :added, :removed, :replaced [[added removed]] and :added
+        ; :removed facts not in replaced
+        e-a #(juxt :e :a %)
+        _ (reduce
+            (fn [acc cur]
+              (let [replaced
+                    (->> (:removed cur)
+                      (map
+                        (fn [removed-fact]
+                          (reduce
+                            (fn [acc added-fact]
+                              (if (= (e-a removed-fact) (e-a added-fact))
+                                (conj acc [added-fact removed-fact])
+                                acc))
+                            []
+                            (:added cur)))))]))
+            {}
+            {:added added :removed removed})]))
+
+    ;[add-diff remove-diff common] (clojure.data/diff added removed)
+    ;(if (every? #{:e :a} (keys common))
+    ;  (mapv :v [add-diff remove-diff])
+    ;  false))
+
 
 (defn rule-item [rule]
   [:div (:display-name rule)])
@@ -55,10 +85,8 @@
 
 
 (defn explanation [payload]
-  (let [conditions (:explanation/conditions payload)
-        bindings (first (:explanation/bindings payload))
-        rule (-> payload :explanation/rule first)
-        {:explanation/keys [fact-str matched-fact state-number event-number event-type]} payload]
+  (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
+                facts props ns-name]} payload]
     (cond
       (nil? payload) nil
       (:explanation/action payload) [explanation-action payload]
@@ -68,43 +96,46 @@
          [:div (str "State " state-number)]
          [:div (str "Event " event-number)]]
        [:div
-        [:pre (pprint-serialized-str fact-str)]
-        " was " event-type " because the conditions "]
+        [:pre (pprint-str->edn (str facts))]
+        " was " type " because the conditions "]
        [:div
-         (for [{:condition/keys [type fact-binding constraints]} conditions]
-           [:div {:key constraints}
+         (for [{:keys [type fact-binding constraints]} lhs]
+           [:div {:key (str constraints)}
             [:ol
              [:li (str "type " type)
-              (some->> fact-binding #(str "with fact-binding "))
-              " where " constraints]]])]
-       [:div "of rule " (-> rule :rule/display-name)]
-       [:div "in namespace " (-> rule :rule/ns)]
-       [:div "matched the fact " (-> payload :explanation/matched-fact)]
-       [:div "and the rule executed " (-> rule :rule/rhs)]
-       [:div "with " (subs (-> bindings :binding/variable) 1)
-        " bound to " (-> bindings :binding/value)]])))
+              (some->> (str fact-binding) #(str "with fact-binding "))
+              " where " (str constraints)]]])]
+       [:div "of rule " (str display-name)]
+       [:div "in namespace "  (str ns-name)]
+       [:div "matched the fact " (str matches)]
+       [:div "and the rule executed " (str rhs)]
+       [:div "with " (subs (str (ffirst bindings)) 1)
+        " bound to " (str (second (first bindings)))]])))
+
+(defn fact [fact-str]
+  [:div {:on-click #(core/then [:transient :explanation/request fact-str])}
+   [:pre (pprint-str->edn fact-str)]])
 
 (defn diff-view []
  (let [{:state/keys [added removed]} @(core/subscribe [:diff-view])]
    [:div
      [:h1 "Diff"]
      [:h3 "Added"]
-     (for [fact-str added]
-       [:div {:key fact-str
-              :on-click #(core/then {:db/id (random-uuid)
-                                     :explaining/fact fact-str})}
-        [:pre (pprint-serialized-str fact-str)]])
+     (if (empty? added)
+       [:div "None"]
+       (for [fact-str added]
+         ^{:key fact-str} [fact fact-str]))
      [:h3 "Removed"]
      (if (empty? removed)
        [:div "None"]
        (for [fact-str removed]
-        [:div {:key fact-str}
-         [:code (str fact-str)]]))]))
+        ^{:key fact-str} [fact fact-str]))]))
 
 (defn explanations []
   (let [{:keys [payload]} @(core/subscribe [:explanations])]
     (if (empty? payload) nil
       [:div {:style {:position "fixed"
+                     :overflow-y "scroll"
                      :top 0
                      :width "25vw"
                      :height "100%"
@@ -125,7 +156,9 @@
          [:div {:style {:min-width "15px"}}]
          [:div {:style {:display "flex" :flex-direction "column"}}
            (for [x payload]
-             ^{:key (:db/id x)} [explanation x])]
+             [:div {:key (:id x)
+                    :style {:margin "15px 0px"}}
+              [explanation x]])]
          [:div {:style {:min-width "15px"}}]]]])))
 
 (defn header []

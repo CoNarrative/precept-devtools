@@ -72,6 +72,7 @@
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (core/then facts)
     (doseq [x (:visualizer-uids @db/db)]
+      (println "Notifying visualizer client ... " x)
       ((:send-fn m) x [:state/update {:orm-state orm-state :facts facts}]))))
 
 (defmethod handle-message :devtools/schemas [m]
@@ -90,6 +91,10 @@
 
 (defmethod handle-message :schemas/get [m]
   ((:?reply-fn m) {:payload (:schemas @db/db)}))
+
+(defmethod handle-message :log/entry-by-coords [m]
+  (let [coords (-> m :event (second))]
+    ((:?reply-fn m) {:payload (get-in (:log @db/db) coords)})))
 
 (defmethod handle-message :chsk/uidport-close [x]
   (println "[devtools-server] A client disconnected" (:uid x))
@@ -116,3 +121,4 @@
 (defstate devtools-session-state
   :start (core/start! {:session devtools-session
                        :facts [[:transient :start true]]}))
+

@@ -27,6 +27,26 @@
         (println "[visualizer] :log/dump" reply)
         (println "Error" reply)))))
 
+(defn get-log-id [id]
+  ((:send-fn @socket) [:log/id id]
+    5000
+    (fn [reply]
+      (if (sente/cb-success? reply)
+        (println "[visualizer] :log/dump" reply)
+        (println "Error" reply)))))
+
+(defn get-log-entry-by-coords [[state-number event-number]]
+  ((:send-fn @socket) [:log/entry-by-coords [state-number event-number]]
+    5000
+    (fn [reply]
+      (if (sente/cb-success? reply)
+        (do
+          (println "[visualizer] :log/entry-by-coords")
+          (core/then {:db/id (-> reply :payload :id)
+                      :event/log-entry (:payload reply)}))
+        (println "Error" reply)))))
+
+
 (defn get-states []
   ((:send-fn @socket) [:states/dump]
     5000
@@ -47,12 +67,14 @@
 (defmethod handle-message :chsk/ws-ping [_])
 
 (defmethod handle-message :visualizer/init [[_ payload]]
-  (println "Rec'd data from server")
+  (println ":visualizer/init")
+  (cljs.pprint/pprint payload)
   (reset! state/orm-ratom (:orm-states payload))
   (core/then (:facts payload)))
 
 (defmethod handle-message :state/update [[_ payload]]
-  (println "Rec'd update from server")
+  (println ":state/update")
+  (cljs.pprint/pprint payload)
   (swap! state/orm-ratom conj (:orm-state payload))
   (core/then (:facts payload)))
 

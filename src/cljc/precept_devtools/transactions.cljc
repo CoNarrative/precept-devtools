@@ -53,9 +53,28 @@
            :v (str (:v fact))
            :t (:t fact)}))
 
+(defn render-diff [];added-strs removed-strs]
+  (let [;added (map cljs.reader/read-string added-strs)
+        ;removed (map cljs.reader/read-string removed-strs)
+        added [{:e 1 :a :foo :v 2 :t 3} {:e 2 :a :foo :v "miss" :t 5}]
+        removed [{:e 1 :a :foo :v 1 :t 4} {:e 2 :a :bar :v "miss2" :t 6}]
+        ; Reduce into m with :added, :removed, :replaced [[added removed]] and :added
+        ; :removed facts not in replaced
+        e-a (juxt :e :a)
+        replacements (for [added-fact added
+                           removed-fact removed
+                           :when (= (e-a added-fact) (e-a removed-fact))]
+                        [added-fact removed-fact])
+        rt-added (remove (set (flatten replacements)) added)
+        rt-removed (remove (set (flatten replacements)) removed)]
+    {:added rt-added :removed rt-removed :replaced replacements}))
+
+;(render-diff)
+
+
 (defn create-event-tx
-  [temp-id type event-number]
-  (into {:db/id temp-id}
+  [event-id type event-number]
+  (into {:db/id event-id}
     #:event{:type type
             :number event-number}))
             ;:fact facts
@@ -73,7 +92,7 @@
    ;:state/events event-refs})
 
 (defn event->facts
-  [*tx-facts {:keys [state-id state-number type action event-number bindings
+  [*tx-facts {:keys [id state-id state-number type action event-number bindings
                      matches name facts ns-name display-name lhs rhs props]}]
   (let [fact-txs (mapv #(create-fact-tx (mk-id) %) facts)
         _ (update-tx-facts! *tx-facts
@@ -106,7 +125,7 @@
                   (vector
                     (create-rule-tx (mk-id)
                       name ns-name display-name `'~rhs props lhs-ref)))
-        event-tx (create-event-tx (mk-id) type event-number)]
+        event-tx (create-event-tx id type event-number)]
     (conj
       (concat fact-txs rule-tx bindings-txs conditions-txs matches-txs lhs-tx)
       (into {}

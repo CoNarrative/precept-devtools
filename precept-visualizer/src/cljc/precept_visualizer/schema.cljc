@@ -138,13 +138,21 @@
        :db.type/ref
        :db/cardinality :db.cardinality/many)
 
+    (attribute :explanation/request-id
+       :db.type/ref
+       :db/cardinality :db.cardinality/many)
+
     (attribute :explanation/match-ids
        :db.type/ref
        :db/cardinality :db.cardinality/many)
 
     (attribute :explanation/condition-ids
        :db.type/ref
-       :db/cardinality :db.cardinality/many)])
+       :db/cardinality :db.cardinality/many)
+
+    (attribute :explanation/log-entry
+      :db.type/hash-map
+      :db/unique :db.unique/identity)])
 
 (def db-schema (mk-db-schema))
 (def client-schema (mk-client-schema))
