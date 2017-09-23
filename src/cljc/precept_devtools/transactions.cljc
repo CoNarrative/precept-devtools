@@ -1,6 +1,37 @@
 (ns precept-devtools.transactions
   (:require [precept.listeners :as l]))
 
+(defn merge-schema-actions
+  [all-events]
+  (let [partitioned (group-by #(= (:type %) :schema-enforcement) all-events)
+        schema-enf (get partitioned true)
+        events (get partitioned false)]
+    (if (empty? schema-enf)
+      events
+      (->> events
+        (mapv
+          (fn [m]
+            (cond
+
+              (= (:type m) :retract-facts)
+              (let [matches (filter #(= (first (:facts m)) (:retracted %)) schema-enf)]
+               (if (= 1 (count matches))
+                 (assoc (dissoc m :action)
+                   :schema/activated true
+                   :schema/caused-by-insert (:inserted (first matches))
+                   :schema/index-path (:index-path (first matches)))
+                 m))
+
+              (= (:type m) :add-facts)
+              (let [matches (filter #(= (first (:facts m)) (:inserted %)) schema-enf)]
+                (if (= 1 (count matches))
+                  (assoc m
+                    :schema/activated true
+                    :schema/conflict (:retracted (first matches))
+                    :schema/index-path (:index-path (first matches)))
+                  m))
+
+              :default m)))))))
 
 (defn mk-id [] (java.util.UUID/randomUUID))
 
@@ -157,11 +188,12 @@
 
 (defn state->facts
   [events]
-  (let [{:keys [state-id state-number]} (first events)
+  (let [enriched-events (merge-schema-actions events)
+        {:keys [state-id state-number]} (first enriched-events)
         state-tx (create-state-tx (mk-id) state-id state-number)
         *fact-str->eid (atom {})
-        event-txs (mapcat #(event->facts *fact-str->eid %) events)
-        state-diff (diff-with-str-facts events)]
+        event-txs (mapcat #(event->facts *fact-str->eid %) enriched-events)
+        state-diff (diff-with-str-facts enriched-events)]
     (conj event-txs
       (assoc state-tx :state/events
                       (mapv :db/id (filter :event/number event-txs))

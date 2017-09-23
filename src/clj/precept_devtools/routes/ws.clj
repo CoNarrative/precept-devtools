@@ -36,14 +36,19 @@
 (defmulti handle-message :id)
 
 (defmethod handle-message :chsk/uidport-open [x]
-  (println "[devtools-server] A client connected" (:uid x))
   (if (visualizer-client? x)
-    (let [cache @db/db]
-      (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
-      ((:send-fn x) (:uid x) [:visualizer/init {:facts (flatten (:states cache))
-                                                :orm-states (:orm-states cache)}]))
-    (reset! db/db {})) ; zero the db for dev
-  (println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
+    (do
+      (println "[devtools-server] Visualizer connected" (:uid x))
+      (let [cache @db/db
+            payload {:facts (flatten (:states cache))
+                     :orm-states (:orm-states cache)}]
+        (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
+        (println "[devtools-server] Sending payload to visualizer: ")
+        (clojure.pprint/pprint payload)
+        ((:send-fn x) (:uid x) [:visualizer/init payload])))
+    (do (println "[devtools-server] Precept app connected " (:uid x))
+        (reset! db/db (dissoc db/initial-state :visualizer-uids))))) ; zero the db for dev
+  ;(println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
 
 (defn update-orm-state! [facts]
   (let [ops (select-keys
@@ -66,14 +71,16 @@
   (println "Received update from app: " (:uid m))
   (let [events (decode-payload m)
         facts (txs/state->facts events)
-        orm-state (update-orm-state! facts)]
+        orm-state (update-orm-state! facts)
+        payload {:orm-state orm-state :facts facts}]
     ;; TODO. Concat? flat list but no get state by index n
-    (swap! db/db update :log #(into [] (conj % events)))
+    (swap! db/db update :log #(into [] (conj % (txs/merge-schema-actions events))))
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (core/then facts)
     (doseq [x (:visualizer-uids @db/db)]
       (println "Notifying visualizer client ... " x)
-      ((:send-fn m) x [:state/update {:orm-state orm-state :facts facts}]))))
+      (clojure.pprint/pprint payload)
+      ((:send-fn m) x [:state/update payload]))))
 
 (defmethod handle-message :devtools/schemas [m]
   (println "Received schemas from app: " (:uid m))
@@ -121,4 +128,3 @@
 (defstate devtools-session-state
   :start (core/start! {:session devtools-session
                        :facts [[:transient :start true]]}))
-

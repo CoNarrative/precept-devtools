@@ -42,6 +42,7 @@
       (if (sente/cb-success? reply)
         (do
           (println "[visualizer] :log/entry-by-coords")
+          (cljs.pprint/pprint (:payload reply))
           (core/then {:db/id (-> reply :payload :id)
                       :event/log-entry (:payload reply)}))
         (println "Error" reply)))))

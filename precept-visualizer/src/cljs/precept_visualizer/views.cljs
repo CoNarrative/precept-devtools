@@ -3,9 +3,12 @@
             [precept.core :as core]
             [precept-visualizer.util :as util]))
 
+(defn m->vec [m] ((juxt :e :a :v :t) m))
+
 (defn pprint-str->edn [s]
   (-> s
     (cljs.reader/read-string)
+    (m->vec)
     (cljs.pprint/pprint)
     (with-out-str)))
 
@@ -76,27 +79,35 @@
        tree)]))
 
 (defn explanation-action [payload]
-  [:div {:style {:display "flex" :flex-direction "column"}}
-   [:div {:style {:display "flex" :justify-content "space-between"}}
-    [:div (str "State " (:explanation/state-number payload))]
-    [:div (str "Event " (:explanation/event-number payload))]]
-   [:div (str (:explanation/fact-str payload)
-           " was " (:explanation/event-type payload) " unconditionally ")]])
-
+  (let [{:keys [state-number event-number facts type]} payload
+        {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
+        payload]
+    [:div {:style {:display "flex" :flex-direction "column"}}
+     [:div {:style {:display "flex" :justify-content "space-between"}}
+      [:div (str "State " state-number)]
+      [:div (str "Event " event-number)]]
+     [:div (str (m->vec (first facts))
+             " was " type " unconditionally ")
+      (when activated
+        (if caused-by-insert
+          [:div (str "Caused by insert " (m->vec caused-by-insert)
+                     " at index path " index-path)]
+          [:div (str "Conflicted with " (m->vec conflict)
+                     " at index path "index-path)]))]]))
 
 (defn explanation [payload]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} payload]
     (cond
       (nil? payload) nil
-      (:explanation/action payload) [explanation-action payload]
+      (#{:add-facts :retract-facts} (:type payload)) [explanation-action payload]
       :default
       [:div {:style {:display "flex" :flex-direction "column"}}
        [:div {:style {:display "flex" :justify-content "space-between"}}
          [:div (str "State " state-number)]
          [:div (str "Event " event-number)]]
        [:div
-        [:pre (pprint-str->edn (str facts))]
+        [:pre (str (m->vec (first facts)))]
         " was " type " because the conditions "]
        [:div
          (for [{:keys [type fact-binding constraints]} lhs]
