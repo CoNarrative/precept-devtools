@@ -81,6 +81,12 @@
 
 (defmulti handle-event :id)
 
+(defmethod handle-event :chsk/bad-event [x]
+  (println "[visualizer] got bad event" x))
+
+(defmethod handle-event :chsk/bad-package [x]
+  (println "[visualizer] got bad package" x))
+
 (defmethod handle-event :chsk/state [{:keys [?data]}]
   (let [[last-state this-state] ?data]
     (when (:first-open? this-state)
@@ -92,7 +98,7 @@
   (handle-message ?data))
 
 (defstate socket
-  :start (connect! core/default-devtools-host "/chsk"))
+  :start (connect! (:host core/default-devtools-options) "/chsk"))
 
 (defstate router
   :start (sente/start-chsk-router! (:ch-recv @socket) handle-event))

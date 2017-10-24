@@ -13,6 +13,9 @@
               [precept.util :as util])
     (:import [java.io ByteArrayInputStream]))
 
+(defn log [args])
+  ;(apply println args))
+
 (defstate socket
   :start (sente/make-channel-socket!
            (get-sch-adapter)
@@ -79,7 +82,7 @@
     (core/then facts)
     (doseq [x (:visualizer-uids @db/db)]
       (println "Notifying visualizer client ... " x)
-      (clojure.pprint/pprint payload)
+      ;(clojure.pprint/pprint payload)
       ((:send-fn m) x [:state/update payload]))))
 
 (defmethod handle-message :devtools/schemas [m]
@@ -113,9 +116,9 @@
 (defmethod handle-message :chsk/handshake [_])
 (defmethod handle-message :chsk/ws-ping [_])
 (defmethod handle-message :chsk/bad-event [m]
-  (println "Bad event: ")
-  (clojure.pprint/pprint m))
-(defmethod handle-message :default [x] (println "unhandled" x))
+  (println "Bad event: "))
+  ;(clojure.pprint/pprint m))
+(defmethod handle-message :default [x] (println "unhandled"))
 
 (defstate router
   :start (sente/start-chsk-router! (:ch-recv socket) handle-message)

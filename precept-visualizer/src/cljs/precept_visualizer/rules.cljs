@@ -134,7 +134,8 @@
   ;; kept in memory. This duplicate of it should come and go based upon the
   ;; presence of an explanation request, hence insertL here. :explanation
   ;; implies "active"
-  (insert! [?explanation-id :explanation/log-entry ?log-entry]))
+  (insert! [?explanation-id :explanation/log-entry {:fact-str ?fact-str
+                                                    :event ?log-entry}]))
 
 (defsub :explanations
   [?explanations <- (acc/all :v) :from [_ :explanation/log-entry]]

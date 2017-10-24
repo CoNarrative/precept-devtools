@@ -5,9 +5,12 @@
             [precept-visualizer.util :as util]
             [precept-visualizer.views :as views]
             [mount.core :as mount]
+            [devtools.core :as binaryage-devtools]
             [precept-visualizer.rules :refer [visualizer-session]]
             [precept-visualizer.ws :as ws]
             [precept-visualizer.state :as viz-state]))
+
+(binaryage-devtools/install!)
 
 
 (defn render!

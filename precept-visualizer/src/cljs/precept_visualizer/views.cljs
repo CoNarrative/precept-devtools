@@ -1,7 +1,9 @@
 (ns precept-visualizer.views
   (:require [reagent.core :as r]
             [precept.core :as core]
-            [precept-visualizer.util :as util]))
+            [precept.spec.event :as precept-event]
+            [precept-visualizer.util :as util]
+            [cljs.spec.alpha :as s]))
 
 (defn m->vec [m] ((juxt :e :a :v :t) m))
 
@@ -54,7 +56,10 @@
 
 (defn state-tree [*orm-states]
   (let [sub @(core/subscribe [:state-tree])
-        tree (get @*orm-states (:state/number sub))]
+        tree (get @*orm-states (:state/number sub))
+        _ (println (count @*orm-states))
+        _ (println (:state/number sub))
+        _ (println "state-tree render" tree)]
     [:div
      [:h4 "State tree"]
      [:div {:style {:display "flex" :justify-content "space-between"}}
@@ -78,15 +83,16 @@
                 av)]])
        tree)]))
 
-(defn explanation-action [payload]
-  (let [{:keys [state-number event-number facts type]} payload
+(defn explanation-action [{:keys [event fact-str]}]
+  (let [{:keys [state-number event-number facts type]} event
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
-        payload]
+        event
+        fact-edn (cljs.reader/read-string fact-str)]
     [:div {:style {:display "flex" :flex-direction "column"}}
      [:div {:style {:display "flex" :justify-content "space-between"}}
       [:div (str "State " state-number)]
       [:div (str "Event " event-number)]]
-     [:div (str (m->vec (first facts))
+     [:div (str (m->vec (first (filter #{fact-edn} facts)))
              " was " type " unconditionally ")
       (when activated
         (if caused-by-insert
@@ -95,33 +101,73 @@
           [:div (str "Conflicted with " (m->vec conflict)
                      " at index path "index-path)]))]]))
 
-(defn explanation [payload]
+(def event-types->display
+  {:add-facts "Insert unconditional"
+   :add-facts-logical "Insert logical"
+   :retract-facts "Retract"
+   :retract-facts-logical "Truth maintenance"})
+
+(def op->display
+  {:not "Not exists"})
+
+(defn explanation [{:keys [event fact-str] :as payload}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
-                facts props ns-name]} payload]
+                facts props ns-name]} event
+        _ (println lhs)]
     (cond
-      (nil? payload) nil
-      (#{:add-facts :retract-facts} (:type payload)) [explanation-action payload]
+      (nil? event) nil
+      (#{:add-facts :retract-facts} (:type event)) [explanation-action payload]
       :default
       [:div {:style {:display "flex" :flex-direction "column"}}
        [:div {:style {:display "flex" :justify-content "space-between"}}
          [:div (str "State " state-number)]
          [:div (str "Event " event-number)]]
        [:div
-        [:pre (str (m->vec (first facts)))]
-        " was " type " because the conditions "]
-       [:div
-         (for [{:keys [type fact-binding constraints]} lhs]
-           [:div {:key (str constraints)}
-            [:ol
-             [:li (str "type " type)
-              (some->> (str fact-binding) #(str "with fact-binding "))
-              " where " (str constraints)]]])]
-       [:div "of rule " (str display-name)]
-       [:div "in namespace "  (str ns-name)]
-       [:div "matched the fact " (str matches)]
-       [:div "and the rule executed " (str rhs)]
-       [:div "with " (subs (str (ffirst bindings)) 1)
-        " bound to " (str (second (first bindings)))]])))
+        [:div (event-types->display type)]
+        [:pre (str (m->vec (first facts)))]]
+       [:div "Rule: " (str display-name)]
+       [:div "Conditions: "
+        [:ol
+         (for [{:keys [type fact-binding constraints from accumulator] :as condition} lhs]
+             (cond
+               (s/valid? ::precept-event/op-prefixed-condition condition)
+               [:li
+                (clojure.string/join " "
+                  [(str (op->display (first condition)))
+                   (str (:type (second condition)))
+                   (when-let [constr (not-empty (:constraints (second condition)))]
+                     (str "where " constr))])]
+               (s/valid? ::precept-event/accumulator-map condition)
+               [:li (str "Accumulator condition: " condition)]
+               true
+               [:li
+                 (clojure.string/join " "
+                   [(str (:type condition))
+                    (when-let [constr (not-empty (:constraints condition))]
+                      (str "where " constr))])]))]
+        [:div (if (> (count matches) 1) "Matched facts: " "Matched fact:")
+              (for [match matches]
+                [:div (str (m->vec (first match)))])]
+        [:div "RHS: " (str rhs)]
+        [:div "Captures: "
+         (for [capture bindings]
+           [:div
+            (clojure.string/join ": "
+              [(subs (str (first capture)) 1)
+               (str (if (nil? (second capture)) "nil" (second capture)))])])]]])))
+         ;    (if from
+         ;      [:div "FROM" (str from)]
+         ;      [:div "accumulator" (str accumulator)
+         ;        [:li {:key constraints}
+         ;         (str "type " type)
+         ;         (some->> fact-binding #(str "with fact-binding "))]
+         ;       " where " (str constraints)]))
+         ;[:div "of rule " (str display-name)]
+         ;[:div "in namespace "  (str ns-name)]
+         ;[:div "matched the fact " (str matches)]
+         ;[:div "and the rule executed " (str rhs)]
+         ;[:div "with " (subs (str (ffirst bindings)) 1)
+         ; " bound to " (str (second (first bindings)))]]]])))
 
 (defn fact [fact-str]
   [:div {:on-click #(core/then [:transient :explanation/request fact-str])}
@@ -148,7 +194,7 @@
       [:div {:style {:position "fixed"
                      :overflow-y "scroll"
                      :top 0
-                     :width "25vw"
+                     :width "50vw"
                      :height "100%"
                      :right 0
                      :background "#eee"}}
@@ -167,7 +213,7 @@
          [:div {:style {:min-width "15px"}}]
          [:div {:style {:display "flex" :flex-direction "column"}}
            (for [x payload]
-             [:div {:key (:id x)
+             [:div {:key (:fact-str x)
                     :style {:margin "15px 0px"}}
               [explanation x]])]
          [:div {:style {:min-width "15px"}}]]]])))
