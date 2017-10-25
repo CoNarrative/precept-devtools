@@ -83,24 +83,6 @@
                 av)]])
        tree)]))
 
-(defn explanation-action [{:keys [event fact-str]}]
-  (let [{:keys [state-number event-number facts type]} event
-        {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
-        event
-        fact-edn (cljs.reader/read-string fact-str)]
-    [:div {:style {:display "flex" :flex-direction "column"}}
-     [:div {:style {:display "flex" :justify-content "space-between"}}
-      [:div (str "State " state-number)]
-      [:div (str "Event " event-number)]]
-     [:div (str (m->vec (first (filter #{fact-edn} facts)))
-             " was " type " unconditionally ")
-      (when activated
-        (if caused-by-insert
-          [:div (str "Caused by insert " (m->vec caused-by-insert)
-                     " at index path " index-path)]
-          [:div (str "Conflicted with " (m->vec conflict)
-                     " at index path "index-path)]))]]))
-
 (def event-types->display
   {:add-facts "Insert unconditional"
    :add-facts-logical "Insert logical"
@@ -110,13 +92,63 @@
 (def op->display
   {:not "Not exists"})
 
+(def eav-kw->display
+  {:e "entity id"
+   :a "attribute"
+   :v "value"})
+
+(defn explanation-action [{:keys [event fact-str]}]
+  (let [{:keys [state-number event-number facts type]} event
+        {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
+        event
+        fact-edn (cljs.reader/read-string fact-str)]
+    [:div {:style {:display "flex" :flex-direction "column"}}
+     [:div {:style {:display "flex" :justify-content "space-between"}}
+      [:div (str "State " state-number)]
+      [:div (str "Event " event-number)]]
+     [:div (event-types->display type)]
+     [:div (str (m->vec (first (filter #{fact-edn} facts))))]
+     (when activated
+       (if caused-by-insert
+         [:div (str "Caused by insert " (m->vec caused-by-insert)
+                    " at index path " index-path)]
+         [:div
+           [:div (str "Replaced: " (m->vec conflict))]
+           [:div (str "Schema rule: " index-path)]]))]))
+
+(defn acc-fn->display [[fq-acc-fn kw]]
+  (let [acc-fn-str (last (clojure.string/split (str fq-acc-fn) #"/"))]
+    [acc-fn-str (eav-kw->display kw)]))
+
+
+
+(defn display-accumulator [condition]
+  (let [[acc-fn eav-label] (->> condition
+                             :accumulator
+                             (vec)
+                             (acc-fn->display))]
+    (clojure.string/join " "
+      (filter some?
+        [(clojure.string/capitalize acc-fn)
+         (:type (:from condition))
+         (when eav-label
+           (str eav-label "s"))
+         (when-let [constraints (not-empty (:constraints (:from condition)))]
+           (str "where " constraints))
+         (when-let [binding (:result-binding condition)]
+           (str "as " (name binding)))]))))
+
 (defn explanation [{:keys [event fact-str] :as payload}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
-        _ (println lhs)]
+        _ (println "Event" event)]
     (cond
-      (nil? event) nil
-      (#{:add-facts :retract-facts} (:type event)) [explanation-action payload]
+      (nil? event)
+      nil
+
+      (#{:add-facts :retract-facts} (:type event))
+      ^{:key (:fact-str payload)} [explanation-action payload]
+
       :default
       [:div {:style {:display "flex" :flex-direction "column"}}
        [:div {:style {:display "flex" :justify-content "space-between"}}
@@ -131,30 +163,43 @@
          (for [{:keys [type fact-binding constraints from accumulator] :as condition} lhs]
              (cond
                (s/valid? ::precept-event/op-prefixed-condition condition)
-               [:li
+               [:li {:key (str condition)}
                 (clojure.string/join " "
                   [(str (op->display (first condition)))
                    (str (:type (second condition)))
                    (when-let [constr (not-empty (:constraints (second condition)))]
                      (str "where " constr))])]
+
                (s/valid? ::precept-event/accumulator-map condition)
-               [:li (str "Accumulator condition: " condition)]
+               [:li {:key (str condition)}
+                (do (.log js/console condition)
+                  (str (display-accumulator condition)))]
+
                true
-               [:li
+               [:li {:key (str condition)}
                  (clojure.string/join " "
                    [(str (:type condition))
                     (when-let [constr (not-empty (:constraints condition))]
                       (str "where " constr))])]))]
-        [:div (if (> (count matches) 1) "Matched facts: " "Matched fact:")
-              (for [match matches]
-                [:div (str (m->vec (first match)))])]
+        [:div
+         ;; Accumulator matches are a vector of a value and a token. Skip rendering them
+         ;; until figure out whether/how to parse
+         (when (every? map? matches)
+           (if (> (count matches) 1)
+             "Matched facts: "
+             "Matched fact:")
+           (for [match matches]
+             [:div {:key (str match)}
+               (str (m->vec (first match)))]))]
         [:div "RHS: " (str rhs)]
         [:div "Captures: "
          (for [capture bindings]
-           [:div
-            (clojure.string/join ": "
-              [(subs (str (first capture)) 1)
-               (str (if (nil? (second capture)) "nil" (second capture)))])])]]])))
+           (do
+             (println (str capture))
+             [:div {:key (str capture)}
+              (clojure.string/join ": "
+                [(subs (str (first capture)) 1)
+                 (str (if (nil? (second capture)) "nil" (second capture)))])]))]]])))
          ;    (if from
          ;      [:div "FROM" (str from)]
          ;      [:div "accumulator" (str accumulator)
@@ -190,7 +235,8 @@
 
 (defn explanations []
   (let [{:keys [payload]} @(core/subscribe [:explanations])]
-    (if (empty? payload) nil
+    (if (empty? payload)
+      nil
       [:div {:style {:position "fixed"
                      :overflow-y "scroll"
                      :top 0

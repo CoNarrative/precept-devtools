@@ -47,7 +47,7 @@
                      :orm-states (:orm-states cache)}]
         (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
         (println "[devtools-server] Sending payload to visualizer: ")
-        (clojure.pprint/pprint payload)
+        ;(clojure.pprint/pprint payload)
         ((:send-fn x) (:uid x) [:visualizer/init payload])))
     (do (println "[devtools-server] Precept app connected " (:uid x))
         (reset! db/db (dissoc db/initial-state :visualizer-uids))))) ; zero the db for dev
@@ -73,6 +73,7 @@
 (defmethod handle-message :devtools/update [m]
   (println "Received update from app: " (:uid m))
   (let [events (decode-payload m)
+        ;_ (println "First event:" (keys events))
         facts (txs/state->facts events)
         orm-state (update-orm-state! facts)
         payload {:orm-state orm-state :facts facts}]
