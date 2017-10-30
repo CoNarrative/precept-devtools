@@ -29,13 +29,15 @@
   {:http-server-root "public"
    :server-port 3450
    :nrepl-port 7003
+   :css-dirs ["resources/public/css"]
    :reload-clj-files {:clj true :cljc true}
    :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
   :profiles
   {:dev
    {:dependencies [[com.cemerick/piggieback "0.2.2-SNAPSHOT"]
-                   [figwheel-sidecar "0.5.11"]]
+                   [figwheel-sidecar "0.5.11"]
+                   [devcards "0.2.4"]]
 
     :plugins      [[lein-figwheel "0.5.11"]]
 
@@ -45,18 +47,27 @@
 
     :cljsbuild
     {:builds
-     {:dev
-       {:source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
-        :compiler
-                     {:main "precept-visualizer.app"
-                      :output-to "target/cljsbuild/public/js/app.js"
-                      :output-dir "target/cljsbuild/public/js/out"
-                      :asset-path "/js/out"
-                      :optimizations :none
-                      :cache-analysis false
-                      :source-map true
-                      :pretty-print true}}}}
-
+     [{:id "dev"
+       :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
+       :compiler
+                    {:main "precept-visualizer.app"
+                     :output-to "target/cljsbuild/public/js/app.js"
+                     :output-dir "target/cljsbuild/public/js/out"
+                     :asset-path "/js/out"
+                     :optimizations :none
+                     :cache-analysis false
+                     :source-map true
+                     :pretty-print true}}
+      {:id "devcards"
+       :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
+       :figwheel { :devcards true}
+       :compiler { :main    "precept-visualizer.cards"
+                   :asset-path "js/devcards_out"
+                   :optimizations :none
+                   :source-map true
+                   :output-to  "target/cljsbuild/public/js/visualizer_devcards.js"
+                   :output-dir "target/cljsbuild/public/js/devcards_out"
+                   :source-map-timestamp true}}]}
     :deploy-repositories [["releases"  {:sign-releases false
                                         :url "https://clojars.org/repo"}]
                           ["snapshots" {:sign-releases false

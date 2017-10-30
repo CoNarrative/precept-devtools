@@ -83,7 +83,7 @@
     (core/then facts)
     (doseq [x (:visualizer-uids @db/db)]
       (println "Notifying visualizer client ... " x)
-      ;(clojure.pprint/pprint payload)
+      (clojure.pprint/pprint payload)
       ((:send-fn m) x [:state/update payload]))))
 
 (defmethod handle-message :devtools/schemas [m]
