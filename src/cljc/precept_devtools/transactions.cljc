@@ -122,6 +122,12 @@
    :state/number state-number})
    ;:state/events event-refs})
 
+(defn empty-value? [[k v]]
+  (or
+    (and (coll? v) (empty? v))
+    (nil? v)))
+
+;; TODO. Seems like this is destructuring an atom...
 (defn event->facts
   [*tx-facts {:keys [id state-id state-number type action event-number bindings
                      matches name facts ns-name display-name lhs rhs props]}]
@@ -159,13 +165,10 @@
         event-tx (create-event-tx id type event-number)]
     (conj
       (concat fact-txs rule-tx bindings-txs conditions-txs matches-txs lhs-tx)
+      ;; TODO. Name this. Appears to be joins / refs
       (into {}
         (remove
-          (fn [[k v]]
-            (cond
-              (and (coll? v) (empty? v)) true
-              (nil? v) true
-              :default false))
+          empty-value?
           (assoc event-tx :event/matches (mapv :db/id matches-txs)
                           :event/bindings (mapv :db/id bindings-txs)
                           :event/facts (mapv :db/id fact-txs)

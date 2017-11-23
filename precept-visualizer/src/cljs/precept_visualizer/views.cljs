@@ -2,10 +2,12 @@
   (:require [reagent.core :as r]
             [precept.core :as core]
             [precept.spec.event :as precept-event]
+            [precept.spec.lang :as lang]
             [precept-visualizer.util :as util]
             [cljs.spec.alpha :as s]))
 
-(defn m->vec [m] ((juxt :e :a :v :t) m))
+
+(defn display-eav [m] ((juxt :e :a :v) m))
 
 (defn mk-colors [n]
   (-> (.-chroma js/window)
@@ -15,42 +17,162 @@
 (defn pprint-str->edn [s]
   (-> s
     (cljs.reader/read-string)
-    (m->vec)
-    (cljs.pprint/pprint)
-    (with-out-str)))
+    (display-eav)
+    (str)))
 
-(defn constraint->positional-arg [condition eav-kw]
-  (let [eav-sexpr ({:e '(:e this)
-                    :a '(:a this)
-                    :v '(:v this)}
-                   eav-kw)]
-    (->> (:constraints condition)
-      (filter #(some #{eav-sexpr} %))
-      (mapv #(remove #{'= eav-sexpr} %))
-      (ffirst))))
+(defn first-variable-binding [condition]
+  (some #(when (clojure.string/starts-with? (str %) "?") %)
+    condition))
 
-(defn lhs->eav-syntax [lhs]
+(def eav-this-map
+  {:e '(:e this) :a '(:a this) :v '(:v this)})
+
+(defn binding-declaration?
+  "Tests Clara syntax for an initial binding to a value in a Tuple.
+  e.g. (= ?foo (:e this))"
+  [sexpr eav-kw]
+  (boolean (and (= (count sexpr) 3)
+                (= (eav-kw eav-this-map) (last sexpr))
+                (= '= (first sexpr))
+                (= (s/valid? ::lang/variable-binding (second sexpr))))))
+
+;; Assumes max depth 1 of sexprs in conditions
+(defn ast->positional
+  "Parses a single condition of Clara's LHS ast into Precept syntax. Should be called in order of LHS declaration.
+  `slot->expression-binding` - atom {} of user-defined variable binding for each :e :a :v slot
+   `condition` - Clara ast of condition to be parsed.
+                 keys are :type (i.e. type of fact, corresponding to attribute)
+                 and :constraints (a list, in Clara syntax)
+  `eav-kw` - Keyword of the slot to parse
+  "
+  [slot->expression-binding condition eav-kw]
+  (let [ast->binding-symbols (reduce
+                              (fn [acc condition]
+                                (if (binding-declaration? condition eav-kw)
+                                  (let [eav-binding (eav-kw eav-this-map)
+                                        variable-binding (first-variable-binding condition)]
+                                    (when variable-binding
+                                      (swap! slot->expression-binding assoc eav-kw variable-binding))
+                                    (assoc acc
+                                      (list '= variable-binding eav-binding) variable-binding
+                                      eav-binding variable-binding))
+                                  acc))
+                              {}
+                              (:constraints condition))
+        bound-variable-sym (first (vals ast->binding-symbols))
+        with-symbols-injected (clojure.walk/postwalk-replace
+                                ast->binding-symbols
+                                (:constraints condition))
+        forms-for-requested-slot  (filter #(some #{bound-variable-sym} %)
+                                    with-symbols-injected)
+        bound-variable-decl (list '= bound-variable-sym bound-variable-sym)]
+
+    (cond
+      (> (count forms-for-requested-slot) 1)
+      ;; remove duplicate added by postwalk replace for variable binding declaration
+      (some #(when (not= bound-variable-decl %) %)
+        forms-for-requested-slot)
+
+      (and (= (first forms-for-requested-slot) bound-variable-decl)
+           (some? bound-variable-sym))
+      bound-variable-sym
+
+      (and (nil? bound-variable-sym)
+           (= eav-kw :e))
+      '_
+
+      ;; Use stored symbol name for variable for this slot
+      ;; when this expression does not contain a declaration for it
+      (nil? bound-variable-sym)
+      (let [bound-symbol-for-slot (eav-kw @slot->expression-binding)]
+        (some (fn [form]
+                (when (= bound-symbol-for-slot
+                        (first-variable-binding form))
+                  form))
+          with-symbols-injected))
+
+      true
+      (first forms-for-requested-slot))))
+
+;(def lhs
+;  '[{:constraints [(= ?bar (:e this))
+;                   (number? (:v this))
+;                   (= ?foo (:v this))],
+;     :type :random-number}
+;    {:constraints [(= ?bar (:e this))
+;                   (< ?foo 500)],
+;     :type :random-number}])
+;
+;(def accum-ast
+;  '{:from {:constraints [], :type :greater-than-500},
+;    :result-binding :?eids,
+;    :accumulator (precept.accumulators/all :e)})
+
+
+(defn lhs->eav-syntax
+  "Returns a vector of expressions"
+  [lhs]
   (when-let [conditions (not-empty lhs)]
-    (reduce
-      (fn [acc x]
-        (cond
-          (s/valid? ::precept-event/op-prefixed-condition x)
-          (println "Not implemented" x)
-          (s/valid? ::precept-event/accumulator-map x)
-          (println "Not implemented" x)
-          true
-          (let [e (constraint->positional-arg x :e)
-                a (:type x)
-                v (constraint->positional-arg x :v)]
-            (conj acc (filterv #(not (nil? %)) [e a v])))))
+    (let [slot->expression-binding (atom {})]
+      (reduce
+        (fn [acc ast]
+          (cond
+            (s/valid? ::precept-event/op-prefixed-condition ast)
+            (println "Not implemented" ast)
 
-      []
-      conditions)))
+            (s/valid? ::precept-event/accumulator-map ast)
+            (let [as-lhs [(:from ast)]
+                  binding (symbol (str (name (:result-binding ast))))]
+             (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
 
-(defn eav-conditions->colors [conditions bindings]
-  (let [xs (reduce conj #{} (flatten conditions))
-        colors (mk-colors (count xs))
-        m (zipmap xs colors)]
+            true
+            (let [e (ast->positional
+                      slot->expression-binding ast :e)
+                  a (:type ast)
+                  v (ast->positional
+                      slot->expression-binding ast :v)]
+              (conj acc [(filterv #(not (nil? %)) [e a v])]))))
+
+        []
+        conditions))))
+
+(defn filter-valid-tokens
+  [condition]
+  (reduce
+    (fn [acc token]
+      (cond
+        (#{'_ '<- :from} token)
+        acc
+
+        ;; Return all variable bindings in sexprs
+        (list? token) ;; could be an accumulator
+        (concat acc (filter #(s/valid? ::lang/variable-binding %)
+                      token))
+
+        ;; Variable binding symbols or a literal value
+        true
+        (conj acc token)))
+    []
+    condition))
+
+(defn pattern-matchable-tokens
+  "Returns a set of tokens from conditions in Precept's syntax that may have been
+  used in a match (either variable bindings or valid values for pattern matching)."
+  [conditions]
+  (->> conditions
+    (mapv (fn [condition]
+            (if (vector? (first condition))
+              (filter-valid-tokens (first condition))
+              (filter-valid-tokens condition))))
+    (flatten)
+    (set)))
+
+(defn eav-conditions->colors
+  "Zips ast-parsed conditions with bindings to return map of variable bindings and value matches to colors"
+  [conditions bindings]
+  (let [tokens (pattern-matchable-tokens conditions)
+        colors (mk-colors (count tokens))
+        m (zipmap tokens colors)]
     (reduce
       (fn [acc [variable-kw capture]]
         (if-let [color (get m (symbol (name variable-kw)))]
@@ -114,7 +236,7 @@
             ^{:key (str e)}
             [:div {:style {:display "flex"}}
              [:div {:style {:margin-right 15}}
-              (subs (str e) 0 6)]
+              (str e)]
              [:div {:style {:display "flex" :flex 1 :flex-direction "column"}}
               (map
                 (fn [[a v]]
@@ -131,7 +253,7 @@
   {:add-facts "Insert unconditional"
    :add-facts-logical "Insert logical"
    :retract-facts "Retract"
-   :retract-facts-logical "Truth maintenance"})
+   :retract-facts-logical "Removed by truth maintenance"})
 
 (def op->display
   {:and "And"
@@ -149,50 +271,41 @@
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
         event
         fact-edn (cljs.reader/read-string fact-str)]
-    [:div {:style {:display "flex" :flex-direction "column"}}
-     [:div {:style {:display "flex" :justify-content "space-between"}}
-      [:div (str "State " state-number)]
-      [:div (str "Event " event-number)]]
-     [:div (event-types->display type)]
-     [:pre (str (m->vec (first (filter #{fact-edn} facts))))]
+    [:div {:class "example"
+           :style {:display "flex"
+                   :flex-direction "column"}}
+     [:div {:style {:margin-bottom "20px"
+                    :display "flex"
+                    :justify-content "space-between"}}
+      [:div {:class "label black"}
+       (str "State " state-number)]
+      [:div {:class "label outline black"}
+       (str "Event " event-number)]]
+     [:div
+      [:span {:class "label badge error"}
+        (event-types->display type)]]
+     [:pre (str (display-eav (first (filter #{fact-edn} facts))))]
      (when activated
        (if caused-by-insert
-         [:div (str "Caused by insert " (m->vec caused-by-insert)
+         [:div (str "Caused by insert " (display-eav caused-by-insert)
                     " at index path " index-path)]
          [:div
-           [:div (str "Replaced: ")
-            [:pre (str (m->vec conflict))]]
-           [:div (str "Schema rule: " index-path)]]))]))
+           [:div {:class "label tag"}
+            (str "Replaced")]
+           [:pre (str (display-eav conflict))]
 
-(defn acc-fn->display [[fq-acc-fn kw]]
-  (let [acc-fn-str (last (clojure.string/split (str fq-acc-fn) #"/"))]
-    [acc-fn-str (eav-kw->display kw)]))
+           [:div
+            [:span {:class "label badge focus"}
+              (str "Enforced schema rules")]
+            [:br]
 
-(defn display-accumulator [condition]
-  (let [[acc-fn eav-label] (->> condition
-                             :accumulator
-                             (vec)
-                             (acc-fn->display))]
-    (clojure.string/join " "
-      (filter some?
-        [(clojure.string/capitalize acc-fn)
-         (:type (:from condition))
-         (when eav-label
-           (str eav-label "s"))
-         (when-let [constraints (not-empty (:constraints (:from condition)))]
-           (str "where " constraints))
-         (when-let [binding (:result-binding condition)]
-           (str "as " (name binding)))]))))
+            [:div {:class "label tag"}
+             "Attribute"]
+            [:pre (str (last index-path))]
 
-(defn display-constraint [constraint]
-  (let [labeled (map (fn [x]
-                        (condp = x
-                          '(:e this) "entity id"
-                          '(:a this) "attribute"
-                          '(:v this) "value"
-                          x))
-                    constraint)]
-    labeled))
+            [:div {:class "label tag"}
+             "Cardinality:"]
+            [:pre (str (first index-path))]]]))]))
 
 (defn most-contrast-text-color
   "Returns black or white, whichever has most contrast given a color"
@@ -203,24 +316,72 @@
     "#000000"
     "#ffffff"))
 
-(defn condition-matches [eav-conditions colors]
-  [:pre
-    (for [match eav-conditions]
-      [:span {:key match}
-       "["
-       (interpose " "
-         (map
-           (fn [slot]
-             (if-let [color (get colors slot)]
-               [:span {:key slot
-                       :style {:background-color color
-                               :color (most-contrast-text-color color)}}
+(defn display-condition-value [colors slot]
+  "Returns colorized markup for a value in a condition if one exists in the
+  provided color map, otherwise returns uncolored markup"
+  (if-let [color (get colors slot)]
+    [:span {:key slot
+            :style {:background-color color
+                    :color (most-contrast-text-color color)}}
 
-                (str slot)]
-               [:span {:key slot} (str slot)]))
-           match))
-       "]"
-       [:br]])])
+     (str slot)]
+    [:span {:key slot} (str slot)]))
+
+(defn highlight-match-in-sexpr [sexpr colors]
+  [:span
+   "("
+   (interpose " "
+     (map (fn [sym] (display-condition-value colors sym))
+       sexpr))
+   ")"])
+
+(defn vector-condition-highlight [eav colors]
+  [:span
+   "[["
+   (interpose " "
+     (map (fn [slot]
+           (if (list? slot)
+             ^{:key slot} [highlight-match-in-sexpr slot colors]
+             (display-condition-value colors slot)))
+       eav))
+   "]]"
+   [:br]])
+
+(defn fact-binding-highlight [eav colors]
+  [:span
+   "["
+   (interpose " "
+     (map (fn [slot]
+            (if (list? slot)
+              ^{:key slot} [highlight-match-in-sexpr slot colors]
+              (display-condition-value colors slot)))
+       eav))
+   "]"
+   [:br]])
+
+(defn pattern-highlight
+  "Returns markup for a rule's conditions or facts, displaying each on a new line."
+  [eavs colors]
+  [:pre
+    (for [eav eavs]
+      (cond
+        (vector? (first eav))
+        ^{:key eav} [vector-condition-highlight (first eav) colors]
+
+        (s/valid? ::lang/accum-expr (first eav))
+        ^{:key eav} [fact-binding-highlight eav colors]
+
+        true
+        [:span {:key eav}
+         "["
+         (interpose " "
+           (map (fn [slot]
+                 (if (list? slot)
+                   ^{:key slot} [highlight-match-in-sexpr slot colors]
+                   (display-condition-value colors slot)))
+             eav))
+         "]"
+         [:br]]))])
 
 (defn explanation [{:keys [event fact-str] :as payload}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
@@ -235,85 +396,50 @@
       ^{:key (:fact-str payload)} [explanation-action payload]
 
       :default
-      [:div {:class "example" :style {:display "flex" :flex-direction "column"}}
-       [:div {:style {:margin-bottom "20px" :display "flex" :justify-content "space-between"}}
-         [:span {:class "label black"} (str "State " state-number)]
-         [:span {:class "label outline black"} (str "Event " event-number)]]
+      [:div {:class "example"
+             :style {:display "flex"
+                     :flex-direction "column"}}
+       [:div {:style {:margin-bottom "20px"
+                      :display "flex"
+                      :justify-content "space-between"}}
+         [:span {:class "label black"}
+          (str "State " state-number)]
+         [:span {:class "label outline black"}
+          (str "Event " event-number)]]
        [:div {:style {:margin-bottom "20px"}}
         [:span {:class "label focus outline"}
          "Rule"]
         [:kbd (str name)]]
        [:div
-    ;   [:span {:class "label warning"}
-    ;    "Conditions"]
-    ;   [:ul
-    ;    (for [condition lhs]
-    ;      (cond
-    ;        (s/valid? ::precept-event/op-prefixed-condition condition)
-    ;        [:li {:key (str condition)}
-    ;         (clojure.string/join " "
-    ;           [(str (op->display (first condition)))
-    ;            (str (:type (second condition)))
-    ;            (when-let [constr (not-empty (:constraints (second condition)))]
-    ;              (str "where " constr))])]
-
-    ;        (s/valid? ::precept-event/accumulator-map condition)
-    ;        [:li {:key (str condition)}
-    ;         (str (display-accumulator condition))]
-
-    ;        true
-    ;        [:li {:key (str condition)}
-    ;         [:kbd (str (:type condition))]
-    ;         (when-let [constraints (not-empty (:constraints condition))]
-    ;           (str " where " constraints))]))]
-    ;               ;(clojure.string/join " "
-    ;               ;  (into ["where"]  (mapcat display-constraint constraints)))])]))]
         [:div
           [:span {:class "label tag"}
            "Conditions"]
-          [condition-matches eav-conditions colors]]
+          [pattern-highlight eav-conditions colors]]
         [:div
-         ;; Accumulator matches are a vector of a value and a token. Skip rendering them
-         ;; until figure out whether/how to parse
-         #_(when (every? map? matches))
          [:span {:class "label tag"}
           (if (> (count matches) 1)
             "Matches"
             "Match")]
-         (for [match matches]
-           ^{:key (str match)} [condition-matches [(m->vec (first match))] colors])]
+         (for [match (distinct (mapv #(if (map? (first %))
+                                        (display-eav (first %))
+                                        (first %))
+                                    matches))]
+           ^{:key (str match)} [pattern-highlight
+                                [match]
+                                colors])]
         [:div
           [:span {:class "label badge error"}
            (event-types->display type)]
-          [condition-matches [(m->vec (first facts))] colors]]]])))
-      ; [:div
-      ;  [:span {:class "label error"}
-      ;   "Consequence"]
-      ;  [:pre (str rhs)]]
-      ; [:div "Captures: "
-      ;  (for [capture bindings]
-      ;    [:div {:key (str capture)}
-      ;     (clojure.string/join ": "
-      ;       [(subs (str (first capture)) 1)
-      ;        (str (if (nil? (second capture)) "nil" (second capture)))])])]]])))
-         ;    (if from
-         ;      [:div "FROM" (str from)]
-         ;      [:div "accumulator" (str accumulator)
-         ;        [:li {:key constraints}
-         ;         (str "type " type)
-         ;         (some->> fact-binding #(str "with fact-binding "))]
-         ;       " where " (str constraints)]))
-         ;[:div "of rule " (str display-name)]
-         ;[:div "in namespace "  (str ns-name)]
-         ;[:div "matched the fact " (str matches)]
-         ;[:div "and the rule executed " (str rhs)]
-         ;[:div "with " (subs (str (ffirst bindings)) 1)
-         ; " bound to " (str (second (first bindings)))]]]])))
+          [pattern-highlight [(display-eav (first facts))] colors]]]])))
 
 (defn fact [fact-str]
   [:div {:on-click #(core/then [:transient :explanation/request fact-str])}
    [:pre {:style {:cursor "pointer"}}
-    (pprint-str->edn fact-str)]])
+    [:span "["
+     (interpose " "
+       (map (fn [x] [:span {:key (str fact-str "-" x)} (str x)])
+           (display-eav (cljs.reader/read-string fact-str))))
+     "]"]]])
 
 (defn diff-view []
  (let [{:state/keys [added removed]} @(core/subscribe [:diff-view])]
@@ -405,5 +531,3 @@
    [:h4 "Rules"]
    [rule-list (vals @rules)]
    [state-tree store]])
-
-
