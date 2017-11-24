@@ -1,6 +1,6 @@
 (ns precept-visualizer.devcards.core
   (:require [devcards.core :as dc]
-            [precept-visualizer.views :as views]
+            [precept-visualizer.views.explanations :as explanations]
             [reagent.core :as r]
             [clojure.spec.alpha :as s])
   (:require-macros [devcards.core :refer [defcard defcard-rg reagent]]))
@@ -24,7 +24,7 @@
     :props nil}})
 
 (defcard-rg explanation-no-action
-  (fn [a _] [views/explanation @a])
+  (fn [a _] [explanations/explanation @a])
   explanation-no-action-data
   {:inspect-data true :history false :watch-atom true})
 

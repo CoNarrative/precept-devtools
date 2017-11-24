@@ -1,9 +1,9 @@
 (ns precept-visualizer.core
   (:require [precept.state :as state]
             [reagent.core :as r]
-            [precept.core :as core]
+            [precept.core :as precept]
             [precept-visualizer.util :as util]
-            [precept-visualizer.views :as views]
+            [precept-visualizer.views.core :as views]
             [mount.core :as mount]
             [devtools.core :as binaryage-devtools]
             [precept-visualizer.rules :refer [visualizer-session]]
@@ -14,17 +14,19 @@
 
 
 (defn render!
-  ([] (render! {:rules precept.state/rules :orm-states viz-state/orm-ratom}))
+  ;; TODO. Render rules from target session, not devtools session
+  ([] (render! {:rules precept.state/rules
+                :orm-states viz-state/orm-ratom}))
   ([{:keys [rules orm-states]}]
    (let [mount-node-id "precept-devtools"
          mount-node (util/get-or-create-mount-node! mount-node-id)]
-     (r/render [views/main-container {:rules rules :store orm-states}]
+     (r/render [views/main {:rules rules :store orm-states}]
                mount-node))))
 
 (defn main []
   (mount/start)
-  (core/start! {:session visualizer-session
-                :facts [[:transient :start true]]})
+  (precept/start! {:session visualizer-session
+                   :facts [[:transient :start true]]})
   ;(ws/get-log) ;; TODO. Socket not open when this runs
   (render!))
 

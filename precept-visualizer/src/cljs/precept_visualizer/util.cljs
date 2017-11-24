@@ -2,18 +2,45 @@
   (:require [cognitect.transit :as t]))
 
 
+(defn display-eav [m] ((juxt :e :a :v) m))
+
+
+(def event-types->display
+  {:add-facts "Insert unconditional"
+   :add-facts-logical "Insert logical"
+   :retract-facts "Retract"
+   :retract-facts-logical "Removed by truth maintenance"})
+
+
+(def op->display
+  {:and "And"
+   :or "Or"
+   :not "Not exists"
+   :exists "There exists"})
+
+
+(def eav-kw->display
+  {:e "entity id"
+   :a "attribute"
+   :v "value"})
+
+
 (defmulti display-text :type)
+
 
 (defmethod display-text "define" [m]
   (-> (update m :display-name #(str (vec (rest (first (:rhs m))))))
     (update :lhs str)))
 
+
 (defmethod display-text :default [m]
   (-> (update m :display-name #(str (:name m)))
     (update :lhs str)))
 
+
 (defn impl-rule? [m]
   (clojure.string/includes? (str (:name m)) "___impl"))
+
 
 ;; Borrowed from figwheel
 (defn node [t attrs & children]
@@ -21,6 +48,7 @@
     (doseq [k (keys attrs)] (.setAttribute e (name k) (get attrs k)))
     (doseq [ch children] (.appendChild e ch)) ;; children
     e))
+
 
 (defn get-or-create-mount-node! [mount-node-id]
   (if-not (.getElementById js/document mount-node-id)
@@ -54,11 +82,13 @@
           (.getElementById js/document mount-node-id)))
     (.getElementById js/document mount-node-id)))
 
+
 (deftype KeywordHandler []
   Object
   (tag [_ v] "")
   (rep [_ v] (.-fqn v))
   (stringRep [_ v] (.-fqn v)))
+
 
 (defn to-js [data {:keys [encoding handlers] :as options}]
   (let [writer (t/writer
