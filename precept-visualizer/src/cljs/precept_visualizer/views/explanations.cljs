@@ -6,6 +6,23 @@
             [precept-visualizer.views.consequents :as conseq]))
 
 
+(defn close-explanation-button [fact-str]
+  [:div {:style {:display "flex" :justify-content "flex-end"}}
+   [:span {:style
+                     {:width 20
+                      :height 20
+                      :position "relative"
+                      :top -24
+                      :right -24
+                      :background "white"
+                      :borderRadius "100%"
+                      :cursor "pointer"
+                      :display "flex" :justify-content "center" :align-items "center"}
+           :on-click #(conseq/stop-explain-fact-requested fact-str)}
+    [:span {:style {:color "red"}}
+     "x"]]])
+
+
 (defn explanation-action [{:keys [event fact-str]}]
   (let [{:keys [state-number event-number facts type]} event
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
@@ -14,6 +31,7 @@
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
+     [close-explanation-button fact-str]
      [:div {:style {:margin-bottom "20px"
                     :display "flex"
                     :justify-content "space-between"}}
@@ -64,6 +82,7 @@
       [:div {:class "example"
              :style {:display "flex"
                      :flex-direction "column"}}
+       [close-explanation-button fact-str]
        [:div {:style {:margin-bottom "20px"
                       :display "flex"
                       :justify-content "space-between"}}
@@ -71,6 +90,7 @@
          (str "State " state-number)]
         [:span {:class "label outline black"}
          (str "Event " event-number)]]
+
        [:div {:style {:margin-bottom "20px"}}
         [:span {:class "label focus outline"}
          "Rule"]

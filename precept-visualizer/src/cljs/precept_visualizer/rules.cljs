@@ -22,6 +22,15 @@
   =>
   (retract! ?explanations))
 
+;; TODO. Not sure if we should pull all eids associated with the
+;; fact-str or leave them. No apparent problems with leaving them (current approach)
+(rule on-clear-explanation
+  {:group :action}
+  [[:transient :stop-explain-fact-requested ?fact-str]]
+  [?fact-exp <- [_ :explaining/fact ?fact-str]]
+  =>
+  (retract! ?fact-exp))
+
 
 (rule on-explain-request
   {:group :action}

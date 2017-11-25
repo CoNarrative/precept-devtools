@@ -48,7 +48,7 @@
 (defn diff-view []
   (let [{:state/keys [added removed]} @(precept/subscribe [:diff-view])]
     [:div
-     [:h1 "Diff"]
+     [:h3 "Diff"]
      [:h3 "Added"]
      (if (empty? added)
        [:div "None"]

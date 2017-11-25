@@ -14,3 +14,6 @@
 
 (defn explanations-cleared []
   (then [:transient :clear-all-explanations true]))
+
+(defn stop-explain-fact-requested [fact-str]
+  (then [:transient :stop-explain-fact-requested fact-str]))

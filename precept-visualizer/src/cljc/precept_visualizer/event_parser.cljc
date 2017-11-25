@@ -29,9 +29,17 @@
   "Deduplicates a condition's matches, which contain the same fact more than once.
   Returns in [e a v] format."
   [matches]
-  (distinct (mapv #(if (map? (first %))
+  (distinct (mapv #(cond
+                     ;; single fact match
+                     (map? (first %))
                      (display-eav (first %))
-                     (first %))
+
+                     ;; multi fact match (result binding from accum with fact)
+                     (and (vector? (first %)) (every? map? (first %)))
+                     (mapv display-eav (first %))
+
+                     true
+                     (first %)) ;; for accumulated values (no Tuple facts)
               matches)))
 
 (defn value-constraint-for-slot?
