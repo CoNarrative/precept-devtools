@@ -85,13 +85,11 @@
           (if (> (count matches) 1)
             "Matches"
             "Match")]
-         (for [match (distinct (mapv #(if (map? (first %))
-                                        (util/display-eav (first %))
-                                        (first %))
-                                 matches))]
-           ^{:key (str match)} [matching/pattern-highlight
-                                [match]
-                                colors])]
+         [:pre
+           (for [match (event-parser/dedupe-matches-into-eavs matches)]
+             ^{:key (str match)} [matching/pattern-highlight-fact
+                                  match
+                                  colors])]]
         [:div
          [:span {:class "label badge error"}
           (util/event-types->display type)]
