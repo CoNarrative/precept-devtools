@@ -1,6 +1,7 @@
 (ns precept-visualizer.views.state-tree
   (:require [precept.core :as precept]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [precept-visualizer.util :as util]))
 
 
 (defn elided-e [x]
@@ -9,30 +10,59 @@
     (let [elided? (r/atom true)]
       (fn []
        (if @elided?
-         [:span {:on-click #(swap! elided? not)}
+         [:span {:style {:cursor "pointer"}
+                 :on-click #(swap! elided? not)}
            (str (subs(str x) 0 6)
             "...")]
-         [:span {:on-click #(swap! elided? not)}
+         [:span {:style {:cursor "pointer"}
+                 :on-click #(swap! elided? not)}
            (str x)])))))
 
 
-(defn row [[e a v]]
+(defn row [[e a v] styles]
   [:tr {:key (str e "-" a "-" (hash v))}
-   [:td [elided-e e]]
-   [:td (str a)]
+   [:td {:style {:paddingLeft 12}}
+    (when (not= "" e)
+      [:pre {:style (merge {:padding 0} styles)}
+       [elided-e e]])]
+   [:td
+    [:pre {:style (merge {:padding 0} styles)}
+      (str a)]]
    [:td {:on-click #(println "collapse/expand")}
-    [:pre (with-out-str (cljs.pprint/pprint v))]]])
+    [:pre {:style (merge
+                    {:padding 0}
+                    styles)}
+     (let [from-event-data (if (coll? v)
+                             (clojure.walk/postwalk
+                               (fn [x]
+                                 (if (and (map? x)
+                                       (every? #{:e :a :v :t} (keys x)))
+                                   (util/display-eav x)
+                                   x))
+                               v)
+                             v)]
+       (with-out-str (cljs.pprint/pprint from-event-data)))]]])
 
+(defn entity-rows [i [e av]]
+  (let [styles {:background-color (if (even? i) "#888" "#fff")
+                :color (if (even? i) "#fff" "#000")}]
+    [:tbody {:style styles}
+     (concat
+       (list ^{:key (str e av i)}
+         [row [e (ffirst av) (second (first av))] styles])
+       (map
+         (fn [[a v]]
+           ^{:key (str i a v)} [row ["" a v] styles])
+         (rest av)))]))
 
 ;(defn state-tree [*orm-states])
 ;; What to name???
 (defn main [*orm-states]
   (let [sub (precept/subscribe [:state-tree])
-        collapsed? (r/atom false)
-        _ (println (count @*orm-states))
-        _ (println (:state/number sub))]
+        collapsed? (r/atom false)]
     (fn [*orm-states]
-      (let [tree (get @*orm-states (:state/number @sub))]
+      (let [tree (get @*orm-states (:state/number @sub))
+            _ (println "render" tree)]
         [:div {:style {:margin-left 24}}
          [:h4 {:on-click #(do (println "click")
                               (reset! collapsed? (not @collapsed?)))}
@@ -41,25 +71,28 @@
            [:table
             [:thead
              [:tr
-              [:th "e"]
-              [:th {:style {:width "30%"}}
+              [:th
+               {:style {:cursor "-webkit-grab"
+                        :paddingLeft 12}}
+               "e"]
+              [:th
+               {:style {:cursor "-webkit-grab"
+                        :width "30%"}
+                :on-mouse-down #(precept/then
+                                   [[:state-tree :state-tree.col/mouse-down-evt (doto % (.persist))]
+                                    [:state-tree :state-tree.col/mouse-down-on-col :a]])
+                :on-mouse-up #(precept/then
+                                  {:db/id :transient
+                                   :state-tree.col/mouse-up-on-col
+                                   :a})
+                :on-mouse-move #(precept/then
+                                 [[:transient :state-tree.col/mouse-move-evt (doto % (.persist))]
+                                  [:transient :state-tree.col/mouse-move-on-col :a]])}
                "a"]
-              [:th "v"]]]
+              [:th
+               {:style {:cursor "-webkit-grab"}}
+               "v"]]]
             (map-indexed
               (fn [i [e av]]
-                [:tbody
-                   {:key (str e i)
-                    :style {:background-color (if (even? i) "#888" "#fff")
-                            :color (if (even? i) "#fff" "#000")}}
-                  (concat
-                    (list ^{:key (str e av i)} [row [e (ffirst av) (second (first av))]])
-                    (map
-                      (fn [[a v]]
-                        [:tr {:key (str a v i)}
-                          [:td
-                           ""]
-                          [:td (str a)]
-                          [:td {:on-click #(println "collapse/expand")}
-                            [:div (with-out-str (cljs.pprint/pprint v))]]])
-                      (rest av)))])
-             tree)])]))))
+                ^{:key (str e)} [entity-rows i [e av]])
+              tree)])]))))
