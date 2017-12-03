@@ -1,8 +1,9 @@
 (ns precept-visualizer.views.diff
-  (:require ;;[reagent.core]
-            [precept-visualizer.views.consequents :as conseq]
-            [precept.core :as precept]
-            [precept-visualizer.util :as util]))
+  (:require                                                 ;;[reagent.core]
+    [precept-visualizer.views.consequents :as conseq]
+    [precept.core :as precept]
+    [precept-visualizer.util :as util]
+    [net.cgrand.packed-printer :as packed]))
 
 
 (defn render-diff [];added-strs removed-strs]
@@ -34,13 +35,13 @@
 ;  (mapv :v [add-diff remove-diff])
 ;  false))
 
-
 (defn fact [fact-str]
   [:div {:on-click #(conseq/fact-explanation-requested fact-str)}
    [:pre {:style {:cursor "pointer"}}
     [:span "["
      (interpose " "
-       (map (fn [x] [:span {:key (str fact-str "-" x)} (str x)])
+       (map (fn [x] [:span {:key (str fact-str "-" x)}
+                       (with-out-str (packed/pprint x))])
          (util/display-eav (cljs.reader/read-string fact-str))))
      "]"]]])
 

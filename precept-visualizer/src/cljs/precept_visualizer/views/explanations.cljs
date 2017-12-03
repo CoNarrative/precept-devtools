@@ -66,55 +66,120 @@
            [:pre (str (first index-path))]]]))]))
 
 
-(defn explanation [{:keys [event fact-str] :as payload}]
+;; TODO. We'd be better off if this were higher up the chain. At least put
+;; in event-parser ns
+(defn rule-type-from-name [name]
+  (cond
+    (clojure.string/includes? name "-sub___impl")
+    (let [clean-name (clojure.string/replace name "-sub___impl" "")]
+      {:name clean-name
+       :type :sub
+       :label "Subscription"
+       :class-names ["focus"]})
+
+    (clojure.string/includes? name "define-")
+    {:name name
+     :type :sub
+     :label "Define"
+     :class-names ["success"]}
+
+    :else
+    {:name name
+     :type :rule
+     :label "Rule"
+     :class-names ["focus"]}))
+
+
+(defn rule-name [name]
+  (let [data (rule-type-from-name name)]
+    [:div {:style {:margin-bottom "20px"}}
+     [:span {:class (clojure.string/join " "
+                      (into ["label"]
+                        (conj (:class-names data) "outline")))}
+      (:label data)]
+     [:kbd (str (:name data))]]))
+
+
+(defn explain-subscription-consequence [consequence-op facts colors]
+  (let [sub-map (:v (first facts))]
+    [:div
+     [:span {:class "label badge error"}
+      (str "Subscription result / " (util/event-types->display consequence-op))]
+     [:pre
+      "{"
+      (map
+        (fn [[k v]]
+          [:span {:key (str k v)}
+           (str k " ")
+           [matching/display-condition-value
+            (event-parser/prettify-all-facts v)
+            colors]])
+        sub-map)
+      "}"]]))
+
+
+(defn explain-consequence [rule-name consequence-op facts colors]
+  (let [rule-data (rule-type-from-name rule-name)
+        rule-type (:type rule-data)]
+    (if (= rule-type :sub)
+      [explain-subscription-consequence consequence-op facts colors]
+      [:div
+       [:span {:class "label badge error"}
+        (util/event-types->display consequence-op)]
+       [:pre
+        (for [fact (event-parser/prettify-all-facts facts)]
+         ^{:key (str fact)}
+         [matching/pattern-highlight-fact
+          fact
+          colors])]])))
+
+
+(defn explanation-rule [{:keys [event fact-str] :as payload}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
         eav-conditions (event-parser/lhs->eav-syntax lhs)
         colors (matching/eav-conditions->colors eav-conditions bindings)]
-    (cond
-      (nil? event)
-      nil
+    [:div {:class "example"
+           :style {:display "flex"
+                   :flex-direction "column"}}
+     [close-explanation-button fact-str]
+     [:div {:style {:margin-bottom "20px"
+                    :display "flex"
+                    :justify-content "space-between"}}
+      [:span {:class "label black"}
+       (str "State " state-number)]
+      [:span {:class "label outline black"}
+       (str "Event " event-number)]]
 
-      (#{:add-facts :retract-facts} (:type event))
-      ^{:key (:fact-str payload)} [explanation-action payload]
+     [rule-name name matches]
+     [:div
+      [:div
+       [:span {:class "label tag"}
+        "Conditions"]
+       [matching/pattern-highlight eav-conditions colors]]
+      [:div
+       [:span {:class "label tag"}
+        (if (> (count matches) 1)
+          "Matches"
+          "Match")]
+       [:pre
+        (for [match (event-parser/dedupe-matches-into-eavs matches)]
+          ^{:key (str match)} [matching/pattern-highlight-fact
+                               match
+                               colors])]]
+      [explain-consequence name type facts colors]]]))
 
-      :default
-      [:div {:class "example"
-             :style {:display "flex"
-                     :flex-direction "column"}}
-       [close-explanation-button fact-str]
-       [:div {:style {:margin-bottom "20px"
-                      :display "flex"
-                      :justify-content "space-between"}}
-        [:span {:class "label black"}
-         (str "State " state-number)]
-        [:span {:class "label outline black"}
-         (str "Event " event-number)]]
 
-       [:div {:style {:margin-bottom "20px"}}
-        [:span {:class "label focus outline"}
-         "Rule"]
-        [:kbd (str name)]]
-       [:div
-        [:div
-         [:span {:class "label tag"}
-          "Conditions"]
-         [matching/pattern-highlight eav-conditions colors]]
-        [:div
-         [:span {:class "label tag"}
-          (if (> (count matches) 1)
-            "Matches"
-            "Match")]
-         [:pre
-           (for [match (event-parser/dedupe-matches-into-eavs matches)]
-             ^{:key (str match)} [matching/pattern-highlight-fact
-                                  match
-                                  colors])]]
-        [:div
-         [:span {:class "label badge error"}
-          (util/event-types->display type)]
-         [matching/pattern-highlight
-          [(util/display-eav (first facts))] colors]]]])))
+(defn explanation [{:keys [event fact-str] :as payload}]
+  (cond
+    (nil? event)
+    nil
+
+    (#{:add-facts :retract-facts} (:type event))
+    ^{:key (:fact-str payload)} [explanation-action payload]
+
+    :default
+    [explanation-rule payload]))
 
 
 (defn explanations []

@@ -12,6 +12,7 @@
                  [org.clojure/clojurescript "1.9.671"]
                  [org.clojure/core.async "0.3.442"]
                  [mount "0.1.11"]
+                 [net.cgrand/packed-printer "0.2.1"]
                  [precept "0.4.0-alpha"]
                  [reagent "0.6.0"]]
 

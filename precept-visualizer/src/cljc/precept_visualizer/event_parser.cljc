@@ -25,22 +25,56 @@
              (= '= (first sexpr))
              (s/valid? ::lang/variable-binding (second sexpr)))))
 
+
+(defn has-attribute-of-ignored-fact? [tuple]
+  (= (:a tuple) :precept.spec.sub/request))
+
+
+(defn prettify-all-facts [facts]
+  (clojure.walk/postwalk
+    (fn [x]
+      (cond
+        ;; For the diff view it seems we'd want to preserve this attribute,
+        ;; so the only place we want to drop it is when explaining subscriptions
+        ;(and (map? x) (= (:a x) :precept.spec.sub/response))
+        ;(:v x)
+
+        (and (map? x) (every? #{:e :a :v :t} (keys x)))
+        (display-eav x)
+
+        :else
+        x))
+    facts))
+
+;; Pretty sparse definition for [e a v] ...
+(defn coll-of-eav-vectors? [x] (and (vector? x)
+                                    (= (count x) 3)
+                                    (keyword? (second x))))
+
+
 (defn dedupe-matches-into-eavs
   "Deduplicates a condition's matches, which contain the same fact more than once.
   Returns in [e a v] format."
   [matches]
-  (distinct (mapv #(cond
-                     ;; single fact match
-                     (map? (first %))
-                     (display-eav (first %))
+  (prettify-all-facts
+    (distinct
+      (reduce
+        (fn [acc cur]
+          (cond
+            ;; single fact match
+            (map? (first cur))
+            (if (has-attribute-of-ignored-fact? (first cur))
+              acc
+              (conj acc (display-eav (first cur))))
 
-                     ;; multi fact match (result binding from accum with fact)
-                     (and (vector? (first %)) (every? map? (first %)))
-                     (mapv display-eav (first %))
+            ;; multi fact match (result binding from accum with fact)
+            (and (vector? (first cur)) (every? map? (first cur)))
+            (conj acc (mapv display-eav (first cur)))
 
-                     true
-                     (first %)) ;; for accumulated values (no Tuple facts)
-              matches)))
+            true
+            (conj acc (first cur)))) ;; for accumulated values (no Tuple facts)
+        []
+        matches))))
 
 (defn value-constraint-for-slot?
   [sexpr eav-kw]
@@ -134,12 +168,14 @@
 
 (defn parse-as-positional-tuple
   [slot->expression-binding acc ast]
-  (let [e (ast->positional
-            slot->expression-binding ast :e)
-        a (:type ast)
-        v (ast->positional
-            slot->expression-binding ast :v)]
-    (conj acc [(filterv #(not (nil? %)) [e a v])])))
+  (if (= :precept.spec.sub/request (:type ast)) ;; Omit sub request conditions
+    acc
+    (let [e (ast->positional
+              slot->expression-binding ast :e)
+          a (:type ast)
+          v (ast->positional
+              slot->expression-binding ast :v)]
+      (conj acc [(filterv #(not (nil? %)) [e a v])]))))
 
 
 ;; ::precept-event/test-condition
@@ -222,7 +258,8 @@
 
 
        ;; Drop when reserved keywords, symbols
-        (#{'_ '<- :from :not :and :or :exists :test} token)
+        ;; TODO. Precept #110 wrt :all keyword
+        (#{'_ '<- :from :not :and :or :exists :test :all} token)
         acc
 
         true
@@ -241,102 +278,3 @@
           (matchable-tokens-in-condition condition)))
     (flatten)
     (set)))
-
-
-;(def lhs
-;  '[{:constraints [(= ?bar (:e this))
-;                   (number? (:v this))
-;                   (= ?foo (:v this))],
-;     :type :random-number}
-;    {:constraints [(= ?bar (:e this))
-;                   (< ?foo 500)],
-;     :type :random-number}])
-;
-;(def accum-ast
-;  '{:from {:constraints [], :type :greater-than-500},
-;    :result-binding :?eids,
-;    :accumulator (precept.accumulators/all :e)})
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Boolean ops events
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;{:bindings {:?v 236, :?e :global},
-; :name "precept.app-ns/less-than-500",
-; :type :retract-facts-logical,
-; :ns-name precept.app-ns,
-; :lhs
-;           [[:or
-;             [:not {:constraints [(= ?e (:e this))], :type :greater-than-500}]
-;             [:and
-;              {:constraints
-;                     [(= ?e (:e this)) (number? (:v this)) (= ?v (:v this))],
-;               :type :random-number}
-;              {:constraints [(= ?e (:e this)) (< ?v 500)],
-;               :type :random-number}]]],
-; :event-number 2,
-; :matches
-; [[{:v 236, :e :global, :t 12, :a :random-number} 14]
-;  [{:v 236, :e :global, :t 12, :a :random-number} 15]],
-; :id #uuid "049b8c83-fe89-4bf4-bb7b-46ce7991c75c",
-; :display-name "less-than-500",
-; :state-id #uuid "03dce9e2-bcb9-4d1b-808b-01b3d1869230",
-; :facts [{:v true, :e :global, :t 13, :a :less-than-500}],
-; :rhs (do (do (do (util/insert! [?e :less-than-500 true])))),
-; :state-number 6,
-; :props nil}
-
-;{:bindings {:?v 1, :?e #uuid "2164b9f3-c658-4ea2-ba0e-68d52d2b7475"},
-; :name "precept.app-ns/less-than-500",
-; :type :add-facts-logical,
-; :ns-name precept.app-ns,
-; :lhs
-;  [[:and
-;    {:constraints [(= ?e (:e this)) (= ?v (:v this))],
-;     :type :random-number}
-;    [:not {:constraints [(= ?e (:e this))],
-;           :type :greater-than-500}]
-;    [:not
-;     {:constraints [(= ?v (:v this)) (= :global (:e this))],
-;      :type :random-number}]]],
-; :event-number 1,
-; :matches
-; [[{:v 1,
-;    :e #uuid "2164b9f3-c658-4ea2-ba0e-68d52d2b7475",
-;    :t 8,
-;    :a :random-number}
-;   13]],
-; :id #uuid "5e8857b2-05fc-4c2a-8187-5203ffe1fc7d",
-; :display-name "less-than-500",
-; :state-id #uuid "a69a765b-d3a9-45d8-b074-10d4923db26e",
-; :facts
-; ({:v true,
-;   :e #uuid "2164b9f3-c658-4ea2-ba0e-68d52d2b7475",
-;   :t 9,
-;   :a :less-than-500}),
-; :rhs (do (do (do (util/insert! [?e :less-than-500 true])))),
-; :state-number 3,
-; :props nil}
-
-;'{:bindings
-;  {:?my-fact {:v 695, :e :global, :t 16, :a :random-number},
-;   :?v 695},
-;  :name "precept.app-ns/global-greater-than-500",
-;  :type :add-facts-logical,
-;  :ns-name precept.app-ns,
-;  :lhs [{:constraints [(= ?v (:v this)) (= :global (:e this))],
-;         :type :random-number,
-;         :fact-binding :?my-fact}
-;        {:constraints [(> ?v 500)]},] ;; test expression
-;  :event-number 3,
-;  :matches [[{:v 695, :e :global, :t 16, :a :random-number} 8]],
-;  :id #uuid "a1670e1d-ae71-4be5-85e8-607965079c91",
-;  :display-name "global-greater-than-500",
-;  :state-id #uuid "8411b772-5fcd-43bb-a6ef-baefdd4f80ab",
-;  :facts ({:v true, :e :report, :t 18, :a :global-greater-than-500}),
-;  :rhs
-;               (do (do (do (util/insert! [:report :global-greater-than-500 true])))),
-;  :state-number 6,
-;  :props nil}
-

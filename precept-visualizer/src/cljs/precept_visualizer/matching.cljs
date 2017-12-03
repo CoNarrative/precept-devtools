@@ -1,7 +1,8 @@
 (ns precept-visualizer.matching
   (:require [precept-visualizer.event-parser :as event-parser]
             [precept.spec.lang :as lang]
-            [cljs.spec.alpha :as s]))
+            [cljs.spec.alpha :as s]
+            [net.cgrand.packed-printer :as packed]))
 
 
 (defn mk-colors [n]
@@ -20,13 +21,25 @@
     "#dddddd"))
 
 
+(def ignored-binding-keys #{:?e___sub___impl})
+
+
+(defn remove-ignored-bindings [bindings]
+  (into {} (remove (fn [[k _]] (ignored-binding-keys k)) bindings)))
+
+
 (defn eav-conditions->colors
   "Associates valid tokens in conditions and matched fact values
   with a color."
   [conditions bindings]
   (let [tokens (event-parser/pattern-matchable-tokens conditions)
-        colors (mk-colors (count tokens))
-        tokens->colors (zipmap tokens colors)]
+        bindings (event-parser/prettify-all-facts (remove-ignored-bindings bindings))
+        tokens-and-bindings (into tokens
+                              (mapcat (fn [[k v]] [(symbol (name k))
+                                                   (event-parser/prettify-all-facts v)])
+                                bindings))
+        colors (mk-colors (count tokens-and-bindings))
+        tokens->colors (zipmap tokens-and-bindings colors)]
     (reduce
       (fn [acc [variable-kw capture]]
         (if-let [color (get tokens->colors (symbol (name variable-kw)))]
@@ -34,28 +47,28 @@
           ;; only can produce a color for a variable that wasn't used in a condition or the RHS.
           ;; e.g. ?my-fact <- [x y z] where the rule contains no further reference to
           ;; ?my-fact. May choose to highlight in red to show it's unused.
-          (assoc acc capture color)))
+          (assoc acc capture color)
+          acc))
       tokens->colors
       bindings)))
 
 
-(defn display-condition-value [colors slot]
+(defn display-condition-value [slot colors]
   "Returns colorized markup for a value in a condition if one exists in the
   provided color map, otherwise returns uncolored markup"
   (if-let [color (get colors slot)]
-    [:span {:key slot
-            :style {:background-color color
-                    :color (most-contrast-text-color color)}}
-
+    [:span
+     {:style {:background-color color
+              :color (most-contrast-text-color color)}}
      (str slot)]
-    [:span {:key slot} (str slot)]))
+    [:span (str slot)]))
 
 
 (defn highlight-match-in-sexpr [sexpr colors]
   [:span
    "("
    (interpose " "
-     (map (fn [sym] (display-condition-value colors sym))
+     (map (fn [sym] ^{:key (str sym)} [display-condition-value sym colors])
        sexpr))
    ")"])
 
@@ -70,7 +83,7 @@
      (map (fn [slot]
             (if (list? slot)
               ^{:key slot} [highlight-match-in-sexpr slot colors]
-              (display-condition-value colors slot)))
+              ^{:key slot} [display-condition-value slot colors]))
        eav))
    "]]"
    [:br]])
@@ -86,35 +99,40 @@
      (map (fn [slot]
             (if (list? slot)
               ^{:key slot} [highlight-match-in-sexpr slot colors]
-              (display-condition-value colors slot)))
+              ^{:key slot} [display-condition-value slot colors]))
        eav))
    "]"])
 
+(defn pattern-highlight-slots [fact colors]
+  (let [str-fact (str fact)]
+    [:span
+     (first str-fact)
+     (interpose " "
+       (map (fn [slot]
+              ^{:key slot} [display-condition-value slot colors])
+         fact))
+     (last str-fact)]))
 
 (defn pattern-highlight-fact [fact colors]
-  [:span {:key fact}
-   "["
-   (interpose " "
-     (map (fn [slot]
-            ;; TODO. Unlikely an sexpr here if a fact, but could be
-            ;; a lot of data in :v slot that we may want to collapse
-            ;; and highlight on expansion
-            (if (list? slot)
-              ^{:key slot} [highlight-match-in-sexpr slot colors]
-              (display-condition-value colors slot)))
-       fact))
-   "]"
-   [:br]])
+  (run! cljs.pprint/pprint ["highlighting fact with colors " fact colors])
+  (if-let [color (get colors fact)]
+    [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
+     [pattern-highlight-slots fact colors]
+     [:br]]
+    [:span
+     [pattern-highlight-slots fact colors]
+     [:br]]))
 
 
 (defn fact-binding-highlight [form colors]
   (let [fact-binding (first form)
         left-arrow (str (second form))
         tuple-constraint (nth form 2)]
-    [:span {:key form}
+    [:span
      "["
      (interpose " "
-       [(display-condition-value colors fact-binding)
+       [[:span {:style {:border-bottom (str "2px solid " (get colors fact-binding))
+                        :padding-bottom 2}} (str fact-binding)]
         left-arrow
         ^{:key tuple-constraint} [tuple-constraint-highlight tuple-constraint colors]])
      "]"
@@ -127,10 +145,10 @@
         accum-expr (str (nth form 2))
         from ":from"
         tuple-constraint (nth form 4)]
-    [:span {:key form}
+    [:span
      "["
      (interpose " "
-       [(display-condition-value colors result-binding)
+       [^{:key (str form)} [display-condition-value result-binding colors]
         left-arrow
         accum-expr
         from
@@ -164,26 +182,28 @@
                           (filter (comp #(s/valid? ::lang/ops %) first)
                             (rest xs)))]
                    (if-let [has-next (> (count xs) 2)]
-                     ^{:key xs} [:span
-                                 {:style {:margin-left (* depth 12)}}
-                                 "["
-                                 (str (first xs) " ")
-                                 [:br]
-                                 ;; TODO. (second eav) is only for test case.
-                                 ;; Should be for any [e a v] form within the
-                                 ;; boolean op that is not prefixed by another op
-                                 [:span {:style {:margin-left (* (inc depth) 12)}}
-                                   [tuple-constraint-highlight (second eav) colors]
-                                   [:br]
-                                   (map-indexed #(display-op (inc depth) %2
-                                                   (= %1 (dec next-depth-ops-count)))
-                                     (nthrest xs 2))]
-                                 "]"]
-                     ^{:key xs} [:span
-                                 {:style {:margin-left (* depth 12)}}
-                                 "[" (str (first xs) " ")
-                                 [tuple-constraint-highlight (second xs) colors]
-                                 "]" (when-not last? [:br])])))]
+                      [:span
+                       {:key (str xs)
+                        :style {:margin-left (* depth 12)}}
+                       "["
+                       (str (first xs) " ")
+                       [:br]
+                       ;; TODO. (second eav) is only for test case.
+                       ;; Should be for any [e a v] form within the
+                       ;; boolean op that is not prefixed by another op
+                       [:span {:style {:margin-left (* (inc depth) 12)}}
+                         [tuple-constraint-highlight (second eav) colors]
+                         [:br]
+                         (map-indexed #(display-op (inc depth) %2
+                                         (= %1 (dec next-depth-ops-count)))
+                           (nthrest xs 2))]
+                       "]"]
+                      [:span
+                       {:key (str xs)
+                        :style {:margin-left (* depth 12)}}
+                       "[" (str (first xs) " ")
+                       [tuple-constraint-highlight (second xs) colors]
+                       "]" (when-not last? [:br])])))]
            (display-op 0 eav false))
 
        true
@@ -192,8 +212,8 @@
         (interpose " "
           (map (fn [slot]
                  (if (list? slot)
-                   ^{:key slot} [highlight-match-in-sexpr slot colors]
-                   (display-condition-value colors slot)))
+                   ^{:key (str eav slot)} [highlight-match-in-sexpr slot colors]
+                   ^{:key (str eav slot)} [display-condition-value slot colors]))
             eav))
         "]"
         [:br]]))])

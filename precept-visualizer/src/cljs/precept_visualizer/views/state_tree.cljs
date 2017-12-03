@@ -1,7 +1,9 @@
 (ns precept-visualizer.views.state-tree
   (:require [precept.core :as precept]
             [reagent.core :as r]
-            [precept-visualizer.util :as util]))
+            [net.cgrand.packed-printer :as packed]
+            [precept-visualizer.util :as util]
+            [precept-visualizer.event-parser :as event-parser]))
 
 
 (defn elided-e [x]
@@ -33,15 +35,9 @@
                     {:padding 0}
                     styles)}
      (let [from-event-data (if (coll? v)
-                             (clojure.walk/postwalk
-                               (fn [x]
-                                 (if (and (map? x)
-                                       (every? #{:e :a :v :t} (keys x)))
-                                   (util/display-eav x)
-                                   x))
-                               v)
+                             (event-parser/prettify-all-facts v)
                              v)]
-       (with-out-str (cljs.pprint/pprint from-event-data)))]]])
+       (with-out-str (packed/pprint from-event-data)))]]])
 
 (defn entity-rows [i [e av]]
   (let [styles {:background-color (if (even? i) "#888" "#fff")
