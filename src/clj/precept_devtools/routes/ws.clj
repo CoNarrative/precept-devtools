@@ -83,9 +83,7 @@
     (core/then facts)
     (doseq [uid (:visualizer-uids @db/db)]
       (println "Notifying visualizer client ... " uid)
-      (println "Valid event?" (sente/validate-event [:state/update payload]))
-      ;(clojure.pprint/pprint payload)
-      ((:send-fn m) uid [:state/update (str payload)]))))
+      ((:send-fn m) uid [:state/update payload]))))
 
 (defmethod handle-message :devtools/schemas [m]
   (println "Received schemas from app: " (:uid m))

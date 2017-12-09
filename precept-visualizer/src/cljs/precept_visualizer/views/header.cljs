@@ -3,37 +3,55 @@
             [precept-visualizer.views.consequents :as conseq]))
 
 
-(defn header []
+(def color-schemes
+  {:background-color "#313439"
+   :primary "#1c86f2"
+   :secondary "#f03c69"
+   :pre-background-color "#f8f8f845"
+   :accent-text-color "peachpuff"
+   :text-color "#ffffffc7"})
+
+(defn state-controls []
   (let [{:keys [tracking/state-number tracking/sync?
                 max-state-number]} @(precept/subscribe [:header])]
-    [:div {:style {:display "flex" :flex-direction "column"}}
-     [:div {:style {:display "flex" :align-items "center"}}
-      [:button
-       {:class "button"
-        :on-click #(conseq/tracking-state-number (dec state-number))
-        :disabled (= state-number 0)}
-       [:div {:class "large monospace"}
-        "-"]]
-      [:h3
-       {:class "end"
-        :style {:margin "0px 15px"}}
-       (str "State " state-number)]
-      [:button
-       {:class "button"
-        :on-click #(conseq/tracking-state-number (inc state-number))
-        :disabled (= max-state-number state-number)}
-       [:div {:class "large monospace"}
-        "+"]]]
-     [:div
-      [:div {:class "form-item"}
-       [:label {:class "checkbox"}
-        [:input {:type "checkbox"
-                 :checked sync?
-                 :on-change #(conseq/tracking-state-synced? (not sync?))}]
-        "Sync"]]]
-     [:input {:type "range"
-              :style {:padding 0}
-              :min 0
-              :max max-state-number
-              :value state-number
-              :on-change #(conseq/tracking-state-number (-> % .-target .-value js/Number))}]]))
+    [:div {:style {:display "flex"
+                       :flex-direction "column"
+                       :background-color "grey"}}
+         [:div {:style {:display "flex" :align-items "center"}}
+          [:button
+           {:class "button"
+            :on-click #(conseq/tracking-state-number (dec state-number))
+            :disabled (= state-number 0)}
+           [:div {:class "large monospace"}
+            "-"]]
+          [:h3
+           {:class "end"
+            :style {:margin "0px 15px"}}
+           (str "State " state-number)]
+          [:button
+           {:class "button"
+            :on-click #(conseq/tracking-state-number (inc state-number))
+            :disabled (= max-state-number state-number)}
+           [:div {:class "large monospace"}
+            "+"]]]
+         [:div
+          [:div {:class "form-item"}
+           [:label {:class "checkbox"}
+            [:input {:type "checkbox"
+                     :checked sync?
+                     :on-change #(conseq/tracking-state-synced? (not sync?))}]
+            "Sync"]]]
+         [:input {:type "range"
+                  :style {:padding 0}
+                  :min 0
+                  :max max-state-number
+                  :value state-number
+                  :on-change #(conseq/tracking-state-number (-> % .-target .-value js/Number))}]]))
+
+(defn header []
+  [:div {:style {:display "flex"}}
+   [:div {:style {:flex 1}}
+     [state-controls]]
+   [:div
+     [:img {:src "svg/settings.svg"
+            :style {:width 25 :height 25}}]]])

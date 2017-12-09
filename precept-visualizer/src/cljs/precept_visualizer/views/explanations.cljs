@@ -3,7 +3,8 @@
             [precept-visualizer.util :as util]
             [precept-visualizer.event-parser :as event-parser]
             [precept-visualizer.matching :as matching]
-            [precept-visualizer.views.consequents :as conseq]))
+            [precept-visualizer.views.consequents :as conseq]
+            [net.cgrand.packed-printer :as packed]))
 
 
 (defn close-explanation-button [fact-str]
@@ -111,7 +112,7 @@
         (fn [[k v]]
           [:span {:key (str k v)}
            (str k " ")
-           [matching/display-condition-value
+           [matching/pattern-highlight-fact
             (event-parser/prettify-all-facts v)
             colors]])
         sub-map)
@@ -164,9 +165,12 @@
           "Match")]
        [:pre
         (for [match (event-parser/dedupe-matches-into-eavs matches)]
-          ^{:key (str match)} [matching/pattern-highlight-fact
-                               match
-                               colors])]]
+          [:span {:key (str match)}
+            [matching/pattern-highlight-fact
+             match
+             colors]
+           [:br]])]]
+
       [explain-consequence name type facts colors]]]))
 
 
@@ -192,10 +196,10 @@
                      :width "50vw"
                      :height "100%"
                      :right 0
-                     :background "#eee"}}
+                     :background "#313439"}}
        [:div {:style {:display "flex" :flex-direction "column"}}
         [:h1 {:style {:align-self "center"}}
-         "Explanations"]
+         #_"Explanations"]
         [:button {:on-click #(conseq/explanations-cleared)}
          "Clear all"]
         [:div {:style {:height "25px"}}]

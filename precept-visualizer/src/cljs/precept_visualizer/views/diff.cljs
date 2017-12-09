@@ -3,7 +3,8 @@
     [precept-visualizer.views.consequents :as conseq]
     [precept.core :as precept]
     [precept-visualizer.util :as util]
-    [net.cgrand.packed-printer :as packed]))
+    [net.cgrand.packed-printer :as packed]
+    [precept-visualizer.event-parser :as event-parser]))
 
 
 (defn render-diff [];added-strs removed-strs]
@@ -42,7 +43,7 @@
      (interpose " "
        (map (fn [x] [:span {:key (str fact-str "-" x)}
                        (with-out-str (packed/pprint x))])
-         (util/display-eav (cljs.reader/read-string fact-str))))
+         (event-parser/prettify-all-facts (cljs.reader/read-string fact-str))))
      "]"]]])
 
 

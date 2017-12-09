@@ -5,6 +5,13 @@
             [net.cgrand.packed-printer :as packed]))
 
 
+(defn format-edn-str [edn]
+  (-> edn
+    (packed/pprint)
+    (with-out-str)
+    (clojure.string/trim-newline)))
+
+
 (defn mk-colors [n]
   (-> (.-chroma js/window)
     (.scale "Spectral")
@@ -113,15 +120,15 @@
          fact))
      (last str-fact)]))
 
+
 (defn pattern-highlight-fact [fact colors]
-  (run! cljs.pprint/pprint ["highlighting fact with colors " fact colors])
   (if-let [color (get colors fact)]
     [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
-     [pattern-highlight-slots fact colors]
-     [:br]]
+     (format-edn-str fact)]
     [:span
-     [pattern-highlight-slots fact colors]
-     [:br]]))
+     [pattern-highlight-slots
+      fact
+      colors]]))
 
 
 (defn fact-binding-highlight [form colors]
@@ -148,7 +155,10 @@
     [:span
      "["
      (interpose " "
-       [^{:key (str form)} [display-condition-value result-binding colors]
+       [[:span {:key (str form)
+                :style {:border-bottom (str "2px solid " (get colors result-binding))
+                        :padding-bottom 2}}
+         (str result-binding)]
         left-arrow
         accum-expr
         from
