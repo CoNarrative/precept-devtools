@@ -42,13 +42,13 @@
   (if (visualizer-client? x)
     (do
       (println "[devtools-server] Visualizer connected" (:uid x))
-      (let [cache @db/db
-            payload {:facts (flatten (:states cache))
-                     :orm-states (:orm-states cache)}]
+      (let [{:keys [states orm-states]} @db/db
+            payload {:facts (vec (flatten states))
+                     :orm-states orm-states}]
         (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
         (println "[devtools-server] Sending payload to visualizer: ")
-        ;(clojure.pprint/pprint payload)
-        ((:send-fn x) (:uid x) [:visualizer/init payload])))
+        (binding [*print-namespace-maps* false]
+          ((:send-fn x) (:uid x) [:visualizer/init payload]))))
     (do (println "[devtools-server] Precept app connected " (:uid x))
         (reset! db/db (dissoc db/initial-state :visualizer-uids))))) ; zero the db for dev
   ;(println "[devtools-server] Visualizers" (get-in @db/db [:visualizer-uids])))
@@ -81,10 +81,11 @@
     (swap! db/db update :log #(into [] (conj % (txs/merge-schema-actions events))))
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (core/then facts)
-    (doseq [x (:visualizer-uids @db/db)]
-      (println "Notifying visualizer client ... " x)
-      (clojure.pprint/pprint payload)
-      ((:send-fn m) x [:state/update payload]))))
+    (doseq [uid (:visualizer-uids @db/db)]
+      (println "Notifying visualizer client ... " uid)
+      (println "Valid event?" (sente/validate-event [:state/update payload]))
+      ;(clojure.pprint/pprint payload)
+      ((:send-fn m) uid [:state/update (str payload)]))))
 
 (defmethod handle-message :devtools/schemas [m]
   (println "Received schemas from app: " (:uid m))
@@ -117,9 +118,9 @@
 (defmethod handle-message :chsk/handshake [_])
 (defmethod handle-message :chsk/ws-ping [_])
 (defmethod handle-message :chsk/bad-event [m]
-  (println "Bad event: "))
+  (println "Bad event: " m))
   ;(clojure.pprint/pprint m))
-(defmethod handle-message :default [x] (println "unhandled"))
+(defmethod handle-message :default [x] (println "unhandled" x))
 
 (defstate router
   :start (sente/start-chsk-router! (:ch-recv socket) handle-message)

@@ -65,6 +65,8 @@
         (println "Error" reply)))))
 
 (defmulti handle-message first)
+
+(defmethod handle-message any? [x] (println "Something" x))
 (defmethod handle-message :chsk/ws-ping [_])
 
 (defmethod handle-message :visualizer/init [[_ payload]]
@@ -80,6 +82,9 @@
   (core/then (:facts payload)))
 
 (defmulti handle-event :id)
+(defmethod handle-event :default ; Fallback
+  [{:as ev-msg :keys [event]}]
+  (js/console.log "Unhandled event: %s" (pr-str event)))
 
 (defmethod handle-event :chsk/bad-event [x]
   (println "[visualizer] got bad event" x))
