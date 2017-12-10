@@ -3,14 +3,6 @@
             [precept-visualizer.views.consequents :as conseq]))
 
 
-(def color-schemes
-  {:background-color "#313439"
-   :primary "#1c86f2"
-   :secondary "#f03c69"
-   :pre-background-color "#f8f8f845"
-   :accent-text-color "peachpuff"
-   :text-color "#ffffffc7"})
-
 (defn state-controls []
   (let [{:keys [tracking/state-number tracking/sync?
                 max-state-number]} @(precept/subscribe [:header])]

@@ -4,6 +4,7 @@
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
             [precept.accumulators :as acc]
             [precept.orm :as orm]
+            [precept-visualizer.themes :as themes]
             [precept-visualizer.mouse :as mouse]
             [precept-visualizer.state :as state]
             [precept-visualizer.schema :refer [db-schema client-schema]]
@@ -16,9 +17,11 @@
   (insert-unconditional! [{:db/id :global
                            :tracking/sync? true
                            :view/mode :diff}
+                          {:db/id ::themes
+                           ::themes/selected ::themes/dark}
+                          (merge {:db/id ::themes/dark} themes/dark)
                           {:db/id :windows
-                           :explanations/open? false
-                           :explanations/width-percent 50
+                           :explanations/width-percent 0
                            :main/width-percent 50}]))
 
 
@@ -28,6 +31,21 @@
   [?explanations <- (acc/all) :from [_ :explaining/fact]]
   =>
   (retract! ?explanations))
+
+(rule explanation-window-closed-when-not-explaining-any-facts
+  [:not [_ :explaining/fact]]
+  =>
+  (insert-unconditional! [:windows :explanations/width-percent 0]))
+
+(rule explantion-window-width-when-explanations
+  [:exists [_ :explaining/fact]]
+  =>
+  (insert-unconditional! [:windows :explanations/width-percent 50]))
+
+(rule main-window-percent-is-difference-with-explanations-window
+  [[:windows :explanations/width-percent ?explanation-width]]
+  =>
+  (insert-unconditional! [:windows :main/width-percent (- 100 ?explanation-width)]))
 
 
 ;; TODO. Not sure if we should pull all eids associated with the
@@ -163,6 +181,12 @@
   [?explanations <- (acc/all :v) :from [_ :explanation/log-entry]]
   =>
   {:payload ?explanations})
+
+(defsub :selected-theme
+  [[::themes ::themes/selected ?eid]]
+  [?kvs <- (acc/all (juxt :a :v)) :from [?eid :all]]
+  =>
+  {:theme (into {} ?kvs)})
 
 
 

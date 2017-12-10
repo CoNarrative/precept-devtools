@@ -8,8 +8,12 @@
 
 
 (defn main [{:keys [rules store]}]
-  (let [windows (first (:payload @(precept/subscribe [:windows])))]
-    [:div {:style {:display "flex" :flex-direction "column"}}
+  (let [windows (first (:payload @(precept/subscribe [:windows])))
+        theme (:theme @(precept/subscribe [:selected-theme]))]
+    [:div {:style {:display "flex"
+                   :flex-direction "column"
+                   :color (:text-color theme)
+                   :background (:background-color theme)}}
      [header/header]
      [:div {:style {:display "flex"}}
       [:div {:style {:display "flex"
