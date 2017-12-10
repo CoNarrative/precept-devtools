@@ -43,7 +43,11 @@
      [:div
       [:span {:class "label badge error"}
        (util/event-types->display type)]]
-     [:pre (str (util/display-eav (first (filter #{fact-edn} facts))))]
+     [:pre
+      (matching/format-edn-str
+        (event-parser/prettify-all-facts
+          (first (filter #{fact-edn} facts))
+          {:trim-uuids? true}))]
      (when activated
        (if caused-by-insert
          [:div (str "Caused by insert " (util/display-eav caused-by-insert)
@@ -112,9 +116,7 @@
         (fn [[k v]]
           [:span {:key (str k v)}
            (str k " ")
-           [matching/pattern-highlight-fact
-            (event-parser/prettify-all-facts v)
-            colors]])
+           [matching/pattern-highlight-fact v colors]])
         sub-map)
       "}"]]))
 
@@ -128,11 +130,11 @@
        [:span {:class "label badge error"}
         (util/event-types->display consequence-op)]
        [:pre
-        (for [fact (event-parser/prettify-all-facts facts)]
-         ^{:key (str fact)}
-         [matching/pattern-highlight-fact
-          fact
-          colors])]])))
+        (for [fact facts]
+          ^{:key (str fact)}
+          [matching/pattern-highlight-fact
+           fact
+           colors])]])))
 
 
 (defn explanation-rule [{:keys [event fact-str] :as payload}]
@@ -160,9 +162,7 @@
        [matching/pattern-highlight eav-conditions colors]]
       [:div
        [:span {:class "label tag"}
-        (if (> (count matches) 1)
-          "Matches"
-          "Match")]
+        (if (> (count matches) 1) "Matches" "Match")]
        [:pre
         (for [match (event-parser/dedupe-matches-into-eavs matches)]
           [:span {:key (str match)}
@@ -170,7 +170,6 @@
              match
              colors]
            [:br]])]]
-
       [explain-consequence name type facts colors]]]))
 
 

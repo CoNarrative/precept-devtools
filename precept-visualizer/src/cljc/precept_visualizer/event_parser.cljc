@@ -29,22 +29,34 @@
 (defn has-attribute-of-ignored-fact? [tuple]
   (= (:a tuple) :precept.spec.sub/request))
 
+(defn trim-uuid [uuid]
+  (subs (str uuid) 0 8))
 
-(defn prettify-all-facts [facts]
-  (clojure.walk/postwalk
-    (fn [x]
-      (cond
-        ;; For the diff view it seems we'd want to preserve this attribute,
-        ;; so the only place we want to drop it is when explaining subscriptions
-        ;(and (map? x) (= (:a x) :precept.spec.sub/response))
-        ;(:v x)
+(defn trim-uuid-in-vector [eav]
+  (into [(trim-uuid (first eav))] (rest eav)))
 
-        (and (map? x) (every? #{:e :a :v :t} (keys x)))
-        (display-eav x)
+;; TODO. Would this be better as a multimethod? Seems like it would reduce
+;; checking the options every iteration to just once without losing expressivity
+(defn prettify-all-facts
+  ([facts]
+   (prettify-all-facts facts {}))
+  ([facts {:keys [trim-uuids?] :as options}]
+   (clojure.walk/postwalk
+     (fn [x]
+       (cond
+         ;; For the diff view it seems we'd want to preserve this attribute,
+         ;; so the only place we want to drop it is when explaining subscriptions
+         ;(and (map? x) (= (:a x) :precept.spec.sub/response))
+         ;(:v x)
 
-        :else
-        x))
-    facts))
+         (and (map? x) (every? #{:e :a :v :t} (keys x)))
+         (let [eav-vector (display-eav x)]
+           (if (and (:trim-uuids? options) (uuid? (first eav-vector)))
+             (trim-uuid-in-vector eav-vector)
+             eav-vector))
+
+         true x))
+     facts)))
 
 ;; Pretty sparse definition for [e a v] ...
 (defn coll-of-eav-vectors? [x] (and (vector? x)
@@ -56,25 +68,24 @@
   "Deduplicates a condition's matches, which contain the same fact more than once.
   Returns in [e a v] format."
   [matches]
-  (prettify-all-facts
-    (distinct
-      (reduce
-        (fn [acc cur]
-          (cond
-            ;; single fact match
-            (map? (first cur))
-            (if (has-attribute-of-ignored-fact? (first cur))
-              acc
-              (conj acc (display-eav (first cur))))
+  (distinct
+    (reduce
+      (fn [acc cur]
+        (cond
+          ;; single fact match
+          (map? (first cur))
+          (if (has-attribute-of-ignored-fact? (first cur))
+            acc
+            (conj acc (display-eav (first cur))))
 
-            ;; multi fact match (result binding from accum with fact)
-            (and (vector? (first cur)) (every? map? (first cur)))
-            (conj acc (mapv display-eav (first cur)))
+          ;; multi fact match (result binding from accum with fact)
+          (and (vector? (first cur)) (every? map? (first cur)))
+          (conj acc (mapv display-eav (first cur)))
 
-            true
-            (conj acc (first cur)))) ;; for accumulated values (no Tuple facts)
-        []
-        matches))))
+          true
+          (conj acc (first cur)))) ;; for accumulated values (no Tuple facts)
+      []
+      matches)))
 
 (defn value-constraint-for-slot?
   [sexpr eav-kw]
@@ -92,6 +103,21 @@
     []
     constraints))
 
+(defn ast->binding-symbols [eav-kw slot->expression-binding condition]
+  (reduce
+    (fn [acc condition]
+      (if (binding-declaration? condition eav-kw)
+        (let [variable-binding (first-variable-binding condition)
+              eav-binding (eav-kw eav-this-map)]
+          (do
+            (swap! slot->expression-binding assoc eav-kw variable-binding)
+            (assoc acc
+              (list '= variable-binding eav-binding) variable-binding
+              eav-binding variable-binding)))
+        acc))
+    {}
+    (:constraints condition)))
+
 ;; Assumes max depth 1 of sexprs in conditions
 (defn ast->positional
   "Parses a single condition of Clara's LHS ast into Precept syntax.
@@ -104,22 +130,10 @@
   `eav-kw` - Keyword of the slot to parse
   "
   [slot->expression-binding condition eav-kw]
-  (let [ast->binding-symbols (reduce
-                               (fn [acc condition]
-                                 (if (binding-declaration? condition eav-kw)
-                                   (let [variable-binding (first-variable-binding condition)
-                                         eav-binding (eav-kw eav-this-map)]
-                                     (do
-                                       (swap! slot->expression-binding assoc eav-kw variable-binding)
-                                       (assoc acc
-                                         (list '= variable-binding eav-binding) variable-binding
-                                         eav-binding variable-binding)))
-                                   acc))
-                               {}
-                               (:constraints condition))
-        bound-variable-sym (first (vals ast->binding-symbols))
+  (let [ast->binding-syms (ast->binding-symbols eav-kw slot->expression-binding condition)
+        bound-variable-sym (first (vals ast->binding-syms))
         with-symbols-injected (clojure.walk/postwalk-replace
-                                ast->binding-symbols
+                                ast->binding-syms
                                 (:constraints condition))
         forms-for-requested-slot  (filter #(some #{bound-variable-sym} %)
                                     with-symbols-injected)

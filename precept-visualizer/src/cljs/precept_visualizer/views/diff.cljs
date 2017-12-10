@@ -4,7 +4,8 @@
     [precept.core :as precept]
     [precept-visualizer.util :as util]
     [net.cgrand.packed-printer :as packed]
-    [precept-visualizer.event-parser :as event-parser]))
+    [precept-visualizer.event-parser :as event-parser]
+    [precept-visualizer.matching :as matching]))
 
 
 (defn render-diff [];added-strs removed-strs]
@@ -36,14 +37,19 @@
 ;  (mapv :v [add-diff remove-diff])
 ;  false))
 
-(defn fact [fact-str]
+(defn fact
+  "Returns markup for a fact. Triggers an explanation of the fact instance via
+  the e a v t fact string on click."
+  [fact-str]
   [:div {:on-click #(conseq/fact-explanation-requested fact-str)}
    [:pre {:style {:cursor "pointer"}}
     [:span "["
      (interpose " "
        (map (fn [x] [:span {:key (str fact-str "-" x)}
-                       (with-out-str (packed/pprint x))])
-         (event-parser/prettify-all-facts (cljs.reader/read-string fact-str))))
+                       (matching/format-edn-str x)])
+         (event-parser/prettify-all-facts
+           (cljs.reader/read-string fact-str)
+           {:trim-uuids? true})))
      "]"]]])
 
 

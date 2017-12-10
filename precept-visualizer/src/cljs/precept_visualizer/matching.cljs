@@ -6,10 +6,11 @@
 
 
 (defn format-edn-str [edn]
-  (-> edn
-    (packed/pprint)
-    (with-out-str)
-    (clojure.string/trim-newline)))
+  (binding [*print-readably* false]
+    (-> edn
+      (packed/pprint :width 48)
+      (with-out-str)
+      (clojure.string/trim-newline))))
 
 
 (defn mk-colors [n]
@@ -40,10 +41,11 @@
   with a color."
   [conditions bindings]
   (let [tokens (event-parser/pattern-matchable-tokens conditions)
-        bindings (event-parser/prettify-all-facts (remove-ignored-bindings bindings))
+        bindings (remove-ignored-bindings bindings)
         tokens-and-bindings (into tokens
-                              (mapcat (fn [[k v]] [(symbol (name k))
-                                                   (event-parser/prettify-all-facts v)])
+                              (mapcat
+                                (fn [[k v]]
+                                  [(symbol (name k)) v])
                                 bindings))
         colors (mk-colors (count tokens-and-bindings))
         tokens->colors (zipmap tokens-and-bindings colors)]
@@ -54,7 +56,18 @@
           ;; only can produce a color for a variable that wasn't used in a condition or the RHS.
           ;; e.g. ?my-fact <- [x y z] where the rule contains no further reference to
           ;; ?my-fact. May choose to highlight in red to show it's unused.
-          (assoc acc capture color)
+          (let [acc2 (-> acc
+                      (assoc capture color)
+                       ;; If a collection assoc prettified / short uuid
+                       ;; version with the color too
+                      (assoc (event-parser/prettify-all-facts
+                               capture
+                               {:trim-uuids? true})
+                             color))]
+            ;; If a uuid assoc the short form with the color
+            (if (uuid? capture)
+              (assoc acc2 (event-parser/trim-uuid capture) color)
+              acc2))
           acc))
       tokens->colors
       bindings)))
@@ -63,12 +76,15 @@
 (defn display-condition-value [slot colors]
   "Returns colorized markup for a value in a condition if one exists in the
   provided color map, otherwise returns uncolored markup"
-  (if-let [color (get colors slot)]
-    [:span
-     {:style {:background-color color
-              :color (most-contrast-text-color color)}}
-     (str slot)]
-    [:span (str slot)]))
+  (let [s (if (uuid? slot)
+            (event-parser/trim-uuid slot)
+            (format-edn-str slot))]
+    (if-let [color (get colors slot)]
+      [:span
+       {:style {:background-color color
+                :color (most-contrast-text-color color)}}
+       s]
+      [:span s])))
 
 
 (defn highlight-match-in-sexpr [sexpr colors]
@@ -111,24 +127,28 @@
    "]"])
 
 (defn pattern-highlight-slots [fact colors]
-  (let [str-fact (str fact)]
+  (let [[first-char last-char] (-> fact (str) ((juxt first last)))
+        _ (println "slot highlight" fact)]
     [:span
-     (first str-fact)
+     first-char
      (interpose " "
        (map (fn [slot]
               ^{:key slot} [display-condition-value slot colors])
          fact))
-     (last str-fact)]))
+     last-char]))
 
 
 (defn pattern-highlight-fact [fact colors]
-  (if-let [color (get colors fact)]
-    [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
-     (format-edn-str fact)]
-    [:span
-     [pattern-highlight-slots
-      fact
-      colors]]))
+  (let [formatted (event-parser/prettify-all-facts fact {:trim-uuids? true})
+        _ (println "After:" formatted)
+        _ (println "Colors:" colors)]
+    (if-let [color (get colors fact)]
+      [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
+       (format-edn-str formatted)]
+      [:span
+       [pattern-highlight-slots
+        formatted
+        colors]])))
 
 
 (defn fact-binding-highlight [form colors]
@@ -166,6 +186,40 @@
      "]"
      [:br]]))
 
+(defn ops-exprs [exprs]
+  (filter (comp #(s/valid? ::lang/ops %) first) exprs))
+
+(defn display-op [depth xs last? colors]
+  (let [next-depth-ops-count (->> (rest xs)
+                               (ops-exprs)
+                               (count))]
+    (if-let [has-next (> (count xs) 2)]
+       [:span
+        {:key (str xs)
+         :style {:margin-left (* depth 12)}}
+        "["
+        (str (first xs) " ")
+        [:br]
+        ;; TODO. (second eav) is only for test case.
+        ;; Should be for any [e a v] form within the
+        ;; boolean op that is not prefixed by another op
+        [:span {:style {:margin-left (* (inc depth) 12)}}
+          [tuple-constraint-highlight (second xs) colors]
+          [:br]
+          (map-indexed
+            #(display-op
+               (inc depth)
+               %2
+               (= %1 (dec next-depth-ops-count))
+               colors)
+            (nthrest xs 2))]
+        "]"]
+       [:span
+        {:key (str xs)
+         :style {:margin-left (* depth 12)}}
+        "[" (str (first xs) " ")
+        [tuple-constraint-highlight (second xs) colors]
+        "]" (when-not last? [:br])])))
 
 (defn pattern-highlight
   "Returns markup for a rule's conditions or facts, displaying each on a new line."
@@ -186,35 +240,7 @@
        ^{:key eav} [fact-binding-highlight eav colors]
 
        (s/valid? ::lang/ops (first eav))
-       (letfn [(display-op [depth xs last?]
-                 (let [next-depth-ops-count
-                        (count
-                          (filter (comp #(s/valid? ::lang/ops %) first)
-                            (rest xs)))]
-                   (if-let [has-next (> (count xs) 2)]
-                      [:span
-                       {:key (str xs)
-                        :style {:margin-left (* depth 12)}}
-                       "["
-                       (str (first xs) " ")
-                       [:br]
-                       ;; TODO. (second eav) is only for test case.
-                       ;; Should be for any [e a v] form within the
-                       ;; boolean op that is not prefixed by another op
-                       [:span {:style {:margin-left (* (inc depth) 12)}}
-                         [tuple-constraint-highlight (second eav) colors]
-                         [:br]
-                         (map-indexed #(display-op (inc depth) %2
-                                         (= %1 (dec next-depth-ops-count)))
-                           (nthrest xs 2))]
-                       "]"]
-                      [:span
-                       {:key (str xs)
-                        :style {:margin-left (* depth 12)}}
-                       "[" (str (first xs) " ")
-                       [tuple-constraint-highlight (second xs) colors]
-                       "]" (when-not last? [:br])])))]
-           (display-op 0 eav false))
+       (display-op 0 eav false colors)
 
        true
        [:span {:key eav}

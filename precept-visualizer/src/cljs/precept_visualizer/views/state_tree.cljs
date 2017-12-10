@@ -3,7 +3,8 @@
             [reagent.core :as r]
             [net.cgrand.packed-printer :as packed]
             [precept-visualizer.util :as util]
-            [precept-visualizer.event-parser :as event-parser]))
+            [precept-visualizer.event-parser :as event-parser]
+            [precept-visualizer.matching :as matching]))
 
 
 (defn elided-e [x]
@@ -14,7 +15,7 @@
        (if @elided?
          [:span {:style {:cursor "pointer"}
                  :on-click #(swap! elided? not)}
-           (str (subs(str x) 0 6)
+           (str (subs (str x) 0 8)
             "...")]
          [:span {:style {:cursor "pointer"}
                  :on-click #(swap! elided? not)}
@@ -35,9 +36,9 @@
                     {:padding 0}
                     styles)}
      (let [from-event-data (if (coll? v)
-                             (event-parser/prettify-all-facts v)
+                             (event-parser/prettify-all-facts v {:trim-uuids? true})
                              v)]
-       (with-out-str (packed/pprint from-event-data)))]]])
+       (matching/format-edn-str from-event-data))]]])
 
 (defn entity-rows [i [e av]]
   (let [styles {:background-color (if (even? i) "#888" "#fff")
@@ -57,11 +58,9 @@
   (let [sub (precept/subscribe [:state-tree])
         collapsed? (r/atom false)]
     (fn [*orm-states]
-      (let [tree (get @*orm-states (:state/number @sub))
-            _ (println "render" tree)]
+      (let [tree (get @*orm-states (:state/number @sub))]
         [:div {:style {:margin-left 24}}
-         [:h4 {:on-click #(do (println "click")
-                              (reset! collapsed? (not @collapsed?)))}
+         [:h4 {:on-click #(reset! collapsed? (not @collapsed?))}
           "State tree ^"]
          (when (not @collapsed?)
            [:table
