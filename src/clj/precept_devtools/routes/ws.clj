@@ -42,9 +42,10 @@
   (if (visualizer-client? x)
     (do
       (println "[devtools-server] Visualizer connected" (:uid x))
-      (let [{:keys [states orm-states]} @db/db
+      (let [{:keys [states orm-states schemas]} @db/db
             payload {:facts (vec (flatten states))
-                     :orm-states orm-states}]
+                     :orm-states orm-states
+                     :schemas schemas}]
         (swap! db/db update :visualizer-uids (fn [y] (into #{} (conj y (:uid x)))))
         (println "[devtools-server] Sending payload to visualizer: ")
         (binding [*print-namespace-maps* false]

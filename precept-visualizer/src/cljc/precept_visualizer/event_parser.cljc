@@ -292,3 +292,67 @@
           (matchable-tokens-in-condition condition)))
     (flatten)
     (set)))
+
+
+(defn reduce-entity-group
+  "Takes a collection of :db/id maps with same entity id and returns
+  a single map for the entity with one-to-many attributes in collections."
+  [group one-to-many]
+  (reduce
+    (fn [acc m]
+      (into {}
+        ;; It's easier (for me) to reason over 1 accumulated map for the entity,
+        ;; so we map over the kvs of the current map in the group
+        ;; with the accumulated value for the entity so far and add the new
+        ;; values for the current kvs to the total accumulation
+        (map
+          (fn [[k v]]
+            (cond
+              ;;TODO. Initialization of one-to-many
+              ;; values to vectors might have been
+              ;; handled by this point. Verify this
+              (and (contains? one-to-many k)
+                (not (contains? acc k)))
+              (assoc acc k (vector v))
+
+              (and (contains? one-to-many k)
+                (contains? acc k))
+              (update acc k conj v)
+
+              true
+              (assoc acc k v)))
+          m)))
+    {}
+    group))
+
+
+(defn ast->datomic-maps
+  "Converts :e :a :v :t maps (or coll of them) to :db/id map (or coll of them)
+  Returns values of attributes in the one-to-many arg set as collections."
+  [facts one-to-many]
+  (->> facts
+    (clojure.walk/postwalk
+      (fn [x]
+        (cond
+          ;; single map case
+          (and (map? x) (every? #{:e :a :v :t} (keys x)))
+          ;; ensure value is a vector here if one to many. May be only pass
+          ;; we get and want to represent accurately
+          (let [value (if (contains? one-to-many (:a x))
+                        (vector (:v x))
+                        (:v x))]
+            {:db/id (:e x) (:a x) value})
+
+          (and (coll? x) (every? #(contains? % :db/id) x))
+          ;; Each id (k) in col, return a map with that k as :db/id
+          ;; plus the reduction of its group (v)
+          ;; respecting one-to-many relationships
+          (reduce-kv
+            (fn [acc-xs id group]
+              (let [entity-map (reduce-entity-group group one-to-many)]
+                (conj acc-xs entity-map)))
+            []
+            (group-by :db/id x))
+
+          true
+          x)))))

@@ -127,8 +127,7 @@
    "]"])
 
 (defn pattern-highlight-slots [fact colors]
-  (let [[first-char last-char] (-> fact (str) ((juxt first last)))
-        _ (println "slot highlight" fact)]
+  (let [[first-char last-char] (-> fact (str) ((juxt first last)))]
     [:span
      first-char
      (interpose " "
@@ -139,9 +138,7 @@
 
 
 (defn pattern-highlight-fact [fact colors]
-  (let [formatted (event-parser/prettify-all-facts fact {:trim-uuids? true})
-        _ (println "After:" formatted)
-        _ (println "Colors:" colors)]
+  (let [formatted (event-parser/prettify-all-facts fact {:trim-uuids? true})]
     (if-let [color (get colors fact)]
       [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
        (format-edn-str formatted)]

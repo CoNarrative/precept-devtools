@@ -24,7 +24,7 @@
      "x"]]])
 
 
-(defn explanation-action [{:keys [event fact-str]}]
+(defn explanation-action [{:keys [event fact-str]} theme]
   (let [{:keys [state-number event-number facts type]} event
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
         event
@@ -43,7 +43,7 @@
      [:div
       [:span {:class "label badge error"}
        (util/event-types->display type)]]
-     [:pre
+     [:pre {:style {:background (:pre-background-color theme)}}
       (matching/format-edn-str
         (event-parser/prettify-all-facts
           (first (filter #{fact-edn} facts))
@@ -95,15 +95,16 @@
      :class-names ["focus"]}))
 
 
-(defn rule-name [name]
+(defn rule-name [name theme]
   (let [data (rule-type-from-name name)]
     [:div {:style {:margin-bottom "20px"}}
      [:span {:class (clojure.string/join " "
                       (into ["label"]
                         (conj (:class-names data) "outline")))}
       (:label data)]
-     [:kbd (str (:name data))]]))
-
+     [:kbd {:style {:color (:text-color theme)
+                    :padding-left 12}}
+      (str (:name data))]]))
 
 (defn explain-subscription-consequence [consequence-op facts colors]
   (let [sub-map (:v (first facts))]
@@ -137,7 +138,7 @@
            colors])]])))
 
 
-(defn explanation-rule [{:keys [event fact-str] :as payload}]
+(defn explanation-rule [{:keys [event fact-str] :as payload} theme]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
         eav-conditions (event-parser/lhs->eav-syntax lhs)
@@ -151,17 +152,20 @@
                     :justify-content "space-between"}}
       [:span {:class "label black"}
        (str "State " state-number)]
-      [:span {:class "label outline black"}
+      [:span {:class "label outline"
+              :style {:color "white" #_(:text-color theme)}}
        (str "Event " event-number)]]
 
-     [rule-name name matches]
+     [rule-name name theme]
      [:div
       [:div
-       [:span {:class "label tag"}
+       [:span {:class "label tag"
+               :style {:color (:text-color theme)}}
         "Conditions"]
        [matching/pattern-highlight eav-conditions colors]]
       [:div
-       [:span {:class "label tag"}
+       [:span {:class "label tag"
+               :style {:color (:text-color theme)}}
         (if (> (count matches) 1) "Matches" "Match")]
        [:pre
         (for [match (event-parser/dedupe-matches-into-eavs matches)]
@@ -173,34 +177,37 @@
       [explain-consequence name type facts colors]]]))
 
 
-(defn explanation [{:keys [event fact-str] :as payload}]
+(defn explanation [{:keys [event fact-str] :as payload} theme]
   (cond
     (nil? event)
     nil
 
     (#{:add-facts :retract-facts} (:type event))
-    ^{:key (:fact-str payload)} [explanation-action payload]
+    ^{:key (:fact-str payload)} [explanation-action payload theme]
 
     :default
-    [explanation-rule payload]))
+    [explanation-rule payload theme]))
 
 
-(defn explanations []
+(defn explanations [theme windows]
   (let [{:keys [payload]} @(precept/subscribe [:explanations])]
     (if (empty? payload)
       nil
       [:div {:style {:position "fixed"
                      :overflow-y "scroll"
                      :top 0
-                     :width "50vw"
+                     :width (str (or (:explanations/width-percent windows) "100") "vw")
                      :height "100%"
                      :right 0
-                     :background "#313439"}}
+                     :background (:background-color theme)}}
        [:div {:style {:display "flex" :flex-direction "column"}}
-        [:h1 {:style {:align-self "center"}}
-         #_"Explanations"]
-        [:button {:on-click #(conseq/explanations-cleared)}
-         "Clear all"]
+        [:div {:style {:display "flex"}}
+          [:button {:style {:background (:primary theme)}
+                    :on-click #(conseq/explanations-cleared)}
+           "Clear all"]
+          [:button {:style {:background (:primary theme)}
+                    :on-click #(conseq/explanations-cleared)}
+           "Say hello"]]
         [:div {:style {:height "25px"}}]
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]
@@ -208,5 +215,5 @@
           (for [x payload]
             [:div {:key (:fact-str x)
                    :style {:margin "15px 0px"}}
-             [explanation x]])]
+             [explanation x theme]])]
          [:div {:style {:min-width "15px"}}]]]])))

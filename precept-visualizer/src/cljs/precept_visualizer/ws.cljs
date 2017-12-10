@@ -2,7 +2,7 @@
   (:require [taoensso.sente :as sente]
             [mount.core :refer [defstate]]
             [precept-visualizer.state :as state]
-            [precept.core :as core]))
+            [precept.core :as precept]))
 
 (declare socket)
 
@@ -43,8 +43,8 @@
         (do
           (println "[visualizer] :log/entry-by-coords")
           (cljs.pprint/pprint (:payload reply))
-          (core/then {:db/id (-> reply :payload :id)
-                      :event/log-entry (:payload reply)}))
+          (precept/then {:db/id (-> reply :payload :id)
+                         :event/log-entry (:payload reply)}))
         (println "Error" reply)))))
 
 
@@ -71,15 +71,15 @@
 
 (defmethod handle-message :visualizer/init [[_ payload]]
   (println ":visualizer/init")
-  (cljs.pprint/pprint payload)
   (reset! state/orm-ratom (:orm-states payload))
-  (core/then (:facts payload)))
+  (precept/then (:facts payload))
+  (precept/then (:schemas payload)))
 
 (defmethod handle-message :state/update [[_ payload]]
   (println ":state/update")
   (cljs.pprint/pprint payload)
   (swap! state/orm-ratom conj (:orm-state payload))
-  (core/then (:facts payload)))
+  (precept/then (:facts payload)))
 
 (defmulti handle-event :id)
 (defmethod handle-event :default ; Fallback
@@ -103,7 +103,7 @@
   (handle-message ?data))
 
 (defstate socket
-  :start (connect! (:host core/default-devtools-options) "/chsk"))
+  :start (connect! (:host precept/default-devtools-options) "/chsk"))
 
 (defstate router
   :start (sente/start-chsk-router! (:ch-recv @socket) handle-event))

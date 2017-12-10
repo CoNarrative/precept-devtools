@@ -40,32 +40,35 @@
 (defn fact
   "Returns markup for a fact. Triggers an explanation of the fact instance via
   the e a v t fact string on click."
-  [fact-str]
-  [:div {:on-click #(conseq/fact-explanation-requested fact-str)}
-   [:pre {:style {:cursor "pointer"}}
-    [:span "["
-     (interpose " "
-       (map (fn [x] [:span {:key (str fact-str "-" x)}
-                       (matching/format-edn-str x)])
-         (event-parser/prettify-all-facts
-           (cljs.reader/read-string fact-str)
-           {:trim-uuids? true})))
-     "]"]]])
+  [fact-str schemas]
+  (let [fact-edn (cljs.reader/read-string fact-str)]
+    [:div {:on-click #(conseq/fact-explanation-requested fact-str)}
+     [:pre {:style {:cursor "pointer"}}
+      [:span "["
+       (interpose " "
+         (map (fn [x] [:span {:key (str fact-str "-" x)}
+                         (matching/format-edn-str x)])
+           (event-parser/prettify-all-facts
+             fact-edn
+             {:trim-uuids? true})))
+       "]"]]]))
 
 
-(defn diff-view []
+(defn diff-view [theme schemas]
   (let [{:state/keys [added removed]} @(precept/subscribe [:diff-view])]
     [:div
-     [:h3 "Diff"]
-     [:h3 "Added"]
+     [:h3 {:style {:color (:text-color theme)}}
+      "Diff"]
+     [:h3 {:style {:color (:text-color theme)}}
+      "Added"]
      (if (empty? added)
        [:div "None"]
        (for [fact-str added]
          ^{:key fact-str} [fact fact-str]))
-     [:h3 "Removed"]
+     [:h3 {:style {:color (:text-color theme)}}
+      "Removed"]
      (if (empty? removed)
-       [:div "None"]
+       [:div {:style {:color (:text-color theme)}}
+        "None"]
        (for [fact-str removed]
-         ^{:key fact-str} [fact fact-str]))]))
-
-
+         ^{:key fact-str} [fact fact-str schemas]))]))

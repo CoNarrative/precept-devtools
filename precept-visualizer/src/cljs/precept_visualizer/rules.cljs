@@ -8,6 +8,8 @@
             [precept-visualizer.mouse :as mouse]
             [precept-visualizer.state :as state]
             [precept-visualizer.schema :refer [db-schema client-schema]]
+            ;; TODO. Rename other-rules ns
+            [precept-visualizer.other-rules]
             [precept-visualizer.ws :as ws]))
 
 (rule initial-facts
@@ -191,7 +193,7 @@
 
 
 (session visualizer-session
-  'precept-visualizer.rules
+  'precept-visualizer.rules 'precept-visualizer.other-rules
   :db-schema db-schema
   :client-schema client-schema
   :reload true)

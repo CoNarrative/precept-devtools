@@ -152,7 +152,11 @@
 
     (attribute :explanation/log-entry
       :db.type/hash-map
-      :db/unique :db.unique/identity)])
+      :db/unique :db.unique/identity)
+
+    (attribute :schemas/one-to-many
+      :db.type/keyword
+      :db/cardinality :db.cardinality/many)])
 
 (def db-schema (mk-db-schema))
 (def client-schema (mk-client-schema))
