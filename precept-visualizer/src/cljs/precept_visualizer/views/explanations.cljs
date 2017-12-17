@@ -28,7 +28,8 @@
   (let [{:keys [state-number event-number facts type]} event
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
         event
-        fact-edn (cljs.reader/read-string fact-str)]
+        fact-edn (cljs.reader/read-string fact-str)
+        fact-format (:fact-format @(precept/subscribe [:settings]))]
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
@@ -47,7 +48,7 @@
       (matching/format-edn-str
         (event-parser/prettify-all-facts
           (first (filter #{fact-edn} facts))
-          {:trim-uuids? true}))]
+          {:trim-uuids? true :format fact-format}))]
      (when activated
        (if caused-by-insert
          [:div (str "Caused by insert " (util/display-eav caused-by-insert)
@@ -168,7 +169,9 @@
                :style {:color (:text-color theme)}}
         (if (> (count matches) 1) "Matches" "Match")]
        [:pre
-        (for [match (event-parser/dedupe-matches-into-eavs matches)]
+        (for [match (->> matches
+                      (mapv first)
+                      (remove event-parser/has-attribute-of-ignored-fact?))]
           [:span {:key (str match)}
             [matching/pattern-highlight-fact
              match
@@ -204,10 +207,7 @@
         [:div {:style {:display "flex"}}
           [:button {:style {:background (:primary theme)}
                     :on-click #(conseq/explanations-cleared)}
-           "Clear all"]
-          [:button {:style {:background (:primary theme)}
-                    :on-click #(conseq/explanations-cleared)}
-           "Say hello"]]
+           "Clear all"]]
         [:div {:style {:height "25px"}}]
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]

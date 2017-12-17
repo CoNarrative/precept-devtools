@@ -89,30 +89,6 @@
                                     (= (count x) 3)
                                     (keyword? (second x))))
 
-
-(defn dedupe-matches-into-eavs
-  "Deduplicates a condition's matches, which contain the same fact more than once.
-  Returns in [e a v] format."
-  [matches]
-  (distinct
-    (reduce
-      (fn [acc cur]
-        (cond
-          ;; single fact match
-          (map? (first cur))
-          (if (has-attribute-of-ignored-fact? (first cur))
-            acc
-            (conj acc (display-eav (first cur))))
-
-          ;; multi fact match (result binding from accum with fact)
-          (and (vector? (first cur)) (every? map? (first cur)))
-          (conj acc (mapv display-eav (first cur)))
-
-          true
-          (conj acc (first cur)))) ;; for accumulated values (no Tuple facts)
-      []
-      matches)))
-
 (defn value-constraint-for-slot?
   [sexpr eav-kw]
   (boolean (and (= (count sexpr) 3)

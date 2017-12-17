@@ -2,7 +2,8 @@
   (:require [precept-visualizer.event-parser :as event-parser]
             [precept.spec.lang :as lang]
             [cljs.spec.alpha :as s]
-            [net.cgrand.packed-printer :as packed]))
+            [net.cgrand.packed-printer :as packed]
+            [precept.core :as precept]))
 
 ;; should be format edn to str
 (defn format-edn-str [edn]
@@ -136,16 +137,34 @@
          fact))
      last-char]))
 
+(defn pattern-highlight-entity-map [fact colors]
+  (println "F" fact)
+  [:span "{"
+   (interpose " "
+     (map (fn [slot]
+            ^{:key slot} [display-condition-value slot colors])
+       (reduce concat fact)))
+   "}"])
+
 
 (defn pattern-highlight-fact [fact colors]
-  (let [formatted (event-parser/prettify-all-facts fact {:trim-uuids? true})]
+  (let [fact-format (:fact-format @(precept/subscribe [:settings]))
+        formatted (event-parser/prettify-all-facts fact {:trim-uuids? true :format fact-format})
+        _ (println "colors and fact" colors fact)]
+    ;; If we have a color for the "whole fact" (i.e. result binding) go ahead and highlight it
     (if-let [color (get colors fact)]
-      [:span {:style {:border-bottom (str "2px solid" color) :padding-bottom 4}}
+      [:span {:style {:border-bottom (str "2px solid" color)
+                      :padding-bottom 4}}
        (format-edn-str formatted)]
-      [:span
-       [pattern-highlight-slots
-        formatted
-        colors]])))
+      (if (= fact-format :vector)
+        [:span
+         [pattern-highlight-slots
+          formatted
+          colors]]
+        [:span
+         [pattern-highlight-entity-map
+          formatted
+          colors]]))))
 
 
 (defn fact-binding-highlight [form colors]
