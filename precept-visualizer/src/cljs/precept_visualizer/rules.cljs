@@ -190,9 +190,8 @@
   [[:settings :settings/selected-theme-id ?eid]]
   [?kvs <- (acc/all (juxt :a :v)) :from [?eid :all]]
   =>
-  (let [_ (println "sel them sub" ?eid)]
-    {:selected-theme ?eid
-     :theme (into {} ?kvs)}))
+  {:selected-theme ?eid
+   :theme (into {} ?kvs)})
 
 (defsub :settings
   [[:settings :settings/selected-theme-id ?theme-id]]

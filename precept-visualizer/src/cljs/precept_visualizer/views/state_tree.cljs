@@ -23,22 +23,23 @@
 
 
 (defn row [[e a v] styles]
-  [:tr {:key (str e "-" a "-" (hash v))}
-   [:td {:style {:paddingLeft 12}}
-    (when (not= "" e)
+  (let [format (:fact-format @(precept/subscribe [:settings]))]
+    [:tr {:key (str e "-" a "-" (hash v))}
+     [:td {:style {:paddingLeft 12}}
+      (when (not= "" e)
+        [:pre {:style (merge {:padding 0} styles)}
+         [elided-e e]])]
+     [:td
       [:pre {:style (merge {:padding 0} styles)}
-       [elided-e e]])]
-   [:td
-    [:pre {:style (merge {:padding 0} styles)}
-      (str a)]]
-   [:td {:on-click #(println "collapse/expand")}
-    [:pre {:style (merge
-                    {:padding 0}
-                    styles)}
-     (let [from-event-data (if (coll? v)
-                             (event-parser/prettify-all-facts v {:trim-uuids? true})
-                             v)]
-       (matching/format-edn-str from-event-data))]]])
+        (str a)]]
+     [:td {:on-click #(println "collapse/expand")}
+      [:pre {:style (merge
+                      {:padding 0}
+                      styles)}
+       (let [from-event-data (if (coll? v)
+                               (event-parser/prettify-all-facts v {:trim-uuids? true :format format})
+                               v)]
+         (matching/format-edn-str from-event-data))]]]))
 
 (defn entity-rows [i [e av]]
   (let [styles {:background-color (if (even? i) "#888" "#fff")
