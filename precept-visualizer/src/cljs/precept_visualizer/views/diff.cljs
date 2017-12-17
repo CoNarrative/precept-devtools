@@ -23,7 +23,8 @@
 
 (defn diff-view [theme schemas]
   (let [{:state/keys [added removed]} @(precept/subscribe [:diff-view])
-        edn-format-options {:trim-uuids? true :format :map}
+        fact-format (:fact-format @(precept/subscribe [:settings]))
+        edn-format-options {:trim-uuids? true :format fact-format}
         added-edn (op-strs->edn added edn-format-options)
         removed-edn (op-strs->edn removed edn-format-options)]
     [:div

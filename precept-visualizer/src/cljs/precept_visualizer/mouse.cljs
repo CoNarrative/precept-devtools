@@ -23,7 +23,7 @@
   (precept/then (default-mouse-fact a e)))
 
 
-(def default-mouse-event-attributes [::mouse-down ::mouse-up ::mouse-move])
+(def default-mouse-event-attributes [::mouse-down ::mouse-up ::mouse-move ::click])
 
 
 (defn get-default-handlers
@@ -60,6 +60,7 @@
   (remove-listeners! (mapv name default-mouse-event-attributes)))
 
 
+;; should be "upsert" / create or replace listener
 (defn add-listener!
   "Removes listener for event if exists in handlers-store. Adds provided listener."
   [handlers-store handler ns-event-kw]
@@ -73,21 +74,21 @@
       assoc ns-event-kw
       handler)))
 
-
+;; TODO. change argument order so handlers only can be provided... options should be optional, not required
 (defn add-listeners!
   "Adds mouse event listeners to window. When no `event-handlers` map is
   provided, inserts the mouse event object as a `:transient` fact for each
   attribute in `default-mouse-event-attributes`. Otherwise registers provided
   handlers for their corresponding events.
   `options`:
-    - `persist-events?` - whether to call `.persist` on each event object.
-      Required by Reagent and other React frameworks.
+    - `event-fn` - Function called on every event. Useful to e.g. call `.persist` on each event object
+      when required required by Reagent or other React frameworks.
   "
   ([{:keys [event-fn] :as options}]
    (let [handlers (get-default-handlers (or options {}))]
      (doseq [[ns-event-kw handler] handlers]
        (add-listener! handlers-store handler ns-event-kw))))
-  ([{:keys [mouse-down mouse-up mouse-move] :as event-handlers}
+  ([{:keys [mouse-down mouse-up mouse-move click] :as event-handlers}
     {:keys [event-fn] :as options}]
    (let [handlers (if (empty? event-handlers)
                     (get-default-handlers options)

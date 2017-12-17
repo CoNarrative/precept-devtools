@@ -19,8 +19,9 @@
   (insert-unconditional! [{:db/id :global
                            :tracking/sync? true
                            :view/mode :diff}
-                          {:db/id :themes
-                           :themes/selected ::themes/dark}
+                          {:db/id :settings
+                           :settings/selected-theme-id ::themes/light
+                           :settings/fact-format :vector}
                           (merge {:db/id ::themes/dark} themes/dark)
                           (merge {:db/id ::themes/light} themes/light)
                           {:db/id :windows
@@ -192,6 +193,12 @@
   {:selected-theme ?eid
    :theme (into {} ?kvs)})
 
+(defsub :settings
+  [[:settings :settings/selected-theme-id ?theme-id]]
+  [[:settings :settings/fact-format ?fact-format]]
+  =>
+  {:theme-id ?theme-id
+   :fact-format ?fact-format})
 
 
 (session visualizer-session

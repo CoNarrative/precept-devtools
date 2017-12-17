@@ -64,10 +64,10 @@
                 :icon ">"
                 :children [{:label "Vector"
                             :selected? (fn [state] (= (:fact-format @state) :vector))
-                            :on-click #(precept.core/then [:global :fact-format :vector])}
+                            :on-click #(precept.core/then [:settings :settings/fact-format :vector])}
                            {:label "Map"
                             :selected? (fn [state] (= (:fact-format @state) :map))
-                            :on-click #(precept.core/then [:global :fact-format :map])}]}]}])
+                            :on-click #(precept.core/then [:settings :settings/fact-format :map])}]}]}])
 
 
 
@@ -148,7 +148,7 @@
     (when open?
       [:div {:style {:position "absolute"
                      :width 200
-                     :background "rgba(49, 52, 57, .82)"
+                     :background (:background-color (:theme @local-db))
                      :display "flex"
                      :flex-direction "column"}}
         (map-indexed
@@ -156,33 +156,31 @@
             [menu-item local-db [i [i2]] props])
           children)])]))
 
-(defn menu-header [topbar-menu-items]
-  (let [local-db (r/atom {:open-menus []})]
-    (fn []
-     [:div {:style {:display "flex"
-                    :height 24
-                    :vertical-align "middle"
-                    :background "rgba(49, 52, 57, .82)"}}
-        (map-indexed
-          (fn [i {:keys [label children]}]
-            ^{:key i} [menu-header-item local-db i label children])
-          topbar-menu-items)])))
+(defn menu-header [topbar-menu-items settings theme]
+  (let [local-db (r/atom (merge @settings @theme {:open-menus []}))]
+    [:div {:style {:display "flex"
+                   :height 24
+                   :vertical-align "middle"
+                   :opacity 0.82
+                   :background (:background-color theme)}}
+       (map-indexed
+         (fn [i {:keys [label children]}]
+           ^{:key i} [menu-header-item local-db i label children])
+         topbar-menu-items)]))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn header []
-  (let [local-db (r/atom {})
-        fact-format-sub (precept/subscribe [:fact-format])]
+  (let [settings (precept/subscribe [:settings])
+        theme (precept/subscribe [:selected-theme])]
     (fn []
-      (let [fact-format @fact-format-sub
-            _ (println "fact format" fact-format)]
-        [:div
-         [:div {:style {:display "flex"}}
-          [:div {:style {:padding-left 18
-                         :padding-right 12}}
-           [:img {:style {:width 18 :height 18 :vertical-align "middle" :margin-right 12}
-                  :src "svg/precept-icon.svg"}]
-           [:strong {:style {:vertical-align "middle"}}
-            "Precept Devtools"]]
-          [menu-header topbar-menu-items]]
-         [:div
-          [state-controls]]]))))
+      [:div
+       [:div {:style {:display "flex"}}
+        [:div {:style {:padding-left 18
+                       :padding-right 12}}
+         [:img {:style {:width 18 :height 18 :vertical-align "middle" :margin-right 12}
+                :src "svg/precept-icon.svg"}]
+         [:strong {:style {:vertical-align "middle"}}
+          "Precept Devtools"]]
+        [menu-header topbar-menu-items settings theme]]
+       [:div
+        [state-controls]]])))

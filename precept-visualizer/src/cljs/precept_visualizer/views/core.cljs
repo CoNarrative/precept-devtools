@@ -15,7 +15,7 @@
                    :flex-direction "column"
                    :color (:text-color theme)
                    :background (:background-color theme)}}
-     [header/header]
+     [header/header theme]
      [:div {:style {:display "flex"}}
       [:div {:style {:display "flex"
                      :flex-direction "column"
@@ -23,7 +23,7 @@
        [diff/diff-view theme schemas]
        [:h4 "Rules"]
        [rule-list/rule-list (vals @rules)]
-       [state-tree/main store]]
+       [state-tree/main store theme]]
       [explanations/explanations theme windows]]]))
 
 ;;TODO. Make a test for converting these to :db/id maps

@@ -8,9 +8,11 @@
             [devtools.core :as binaryage-devtools]
             [precept-visualizer.rules :refer [visualizer-session]]
             [precept-visualizer.ws :as ws]
-            [precept-visualizer.state :as viz-state]))
+            [precept-visualizer.state :as viz-state]
+            [precept-visualizer.mouse :as mouse]))
 
 (binaryage-devtools/install!)
+
 
 
 (defn render!
@@ -27,6 +29,6 @@
   (mount/start)
   (precept/start! {:session visualizer-session
                    :facts [[:transient :start true]]})
-  ;(ws/get-log) ;; TODO. Socket not open when this runs
+  ;(mouse/add-listeners! {:click (fn [e] (.log js/console "e" e))} {})
   (render!))
 

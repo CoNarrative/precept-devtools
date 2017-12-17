@@ -54,7 +54,7 @@
 
 ;(defn state-tree [*orm-states])
 ;; What to name???
-(defn main [*orm-states]
+(defn main [*orm-states theme]
   (let [sub (precept/subscribe [:state-tree])
         collapsed? (r/atom false)]
     (fn [*orm-states]
