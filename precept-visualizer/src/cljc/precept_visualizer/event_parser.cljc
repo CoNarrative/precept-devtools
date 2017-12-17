@@ -4,6 +4,8 @@
             [precept.spec.event :as precept-event]))
             ;[precept-visualizer.util :as util]))
 
+(declare ast->datomic-maps)
+
 ;; CLJC failing on reload, copying from util here
 (defn display-eav [m] ((juxt :e :a :v) m))
 
@@ -32,31 +34,55 @@
 (defn trim-uuid [uuid]
   (subs (str uuid) 0 8))
 
-(defn trim-uuid-in-vector [eav]
-  (into [(trim-uuid (first eav))] (rest eav)))
+(defmulti trim-uuid-in-fact
+          (fn [fact]
+            (cond
+              (map? fact) :map
+              (vector? fact) :vector
+              ;; TODO. clj/cljs
+              true (println "Unsupported trim uuid type" (type fact)))))
+
+(defmethod trim-uuid-in-fact :vector [fact]
+  (into [(trim-uuid (first fact))] (rest fact)))
+
+(defmethod trim-uuid-in-fact :map [fact]
+  (update fact :db/id trim-uuid))
+
+
+(defn prettify-all-vector [facts {:keys [trim-uuids?] :as options}]
+  (clojure.walk/postwalk
+    (fn [x]
+      (cond
+        ;; For the diff view it seems we'd want to preserve this attribute,
+        ;; so the only place we want to drop it is when explaining subscriptions
+        ;(and (map? x) (= (:a x) :precept.spec.sub/response))
+        ;(:v x)
+
+        (and (map? x) (every? #{:e :a :v :t} (keys x)))
+        (let [eav-vector (display-eav x)]
+          (if (and trim-uuids? (uuid? (first eav-vector)))
+            (trim-uuid-in-fact eav-vector)
+            eav-vector))
+
+        true x))
+    facts))
+
+(defn prettify-all-map [facts {:keys [trim-uuids? one-to-many] :as options}]
+  (when (not (set? one-to-many))) (ex-info
+                                   "prettify-all-facts with :map option
+                                   requires :one-to-many option to be a set"
+                                   {})
+  (ast->datomic-maps facts one-to-many))
 
 ;; TODO. Would this be better as a multimethod? Seems like it would reduce
 ;; checking the options every iteration to just once without losing expressivity
 (defn prettify-all-facts
   ([facts]
-   (prettify-all-facts facts {}))
-  ([facts {:keys [trim-uuids?] :as options}]
-   (clojure.walk/postwalk
-     (fn [x]
-       (cond
-         ;; For the diff view it seems we'd want to preserve this attribute,
-         ;; so the only place we want to drop it is when explaining subscriptions
-         ;(and (map? x) (= (:a x) :precept.spec.sub/response))
-         ;(:v x)
-
-         (and (map? x) (every? #{:e :a :v :t} (keys x)))
-         (let [eav-vector (display-eav x)]
-           (if (and (:trim-uuids? options) (uuid? (first eav-vector)))
-             (trim-uuid-in-vector eav-vector)
-             eav-vector))
-
-         true x))
-     facts)))
+   (prettify-all-facts facts {:trim-uuids? false :format :vector}))
+  ([facts {:keys [trim-uuids? format one-to-many] :as options}]
+   (if (= format :map)
+     (prettify-all-map facts options)
+     (prettify-all-vector facts options))))
 
 ;; Pretty sparse definition for [e a v] ...
 (defn coll-of-eav-vectors? [x] (and (vector? x)

@@ -4,7 +4,7 @@
             [cljs.spec.alpha :as s]
             [net.cgrand.packed-printer :as packed]))
 
-
+;; should be format edn to str
 (defn format-edn-str [edn]
   (binding [*print-readably* false]
     (-> edn

@@ -189,9 +189,8 @@
   [[:themes :themes/selected ?eid]]
   [?kvs <- (acc/all (juxt :a :v)) :from [?eid :all]]
   =>
-  (let [_ (println "selected theme sub" ?eid)]
-    {:selected-theme ?eid
-     :theme (into {} ?kvs)}))
+  {:selected-theme ?eid
+   :theme (into {} ?kvs)})
 
 
 
