@@ -20,3 +20,6 @@
 
 (defn theme-is [theme-id]
   (then [:settings :settings/selected-theme-id theme-id]))
+
+(defn fact-format-is [kw]
+  (then [:settings :settings/fact-format kw]))
