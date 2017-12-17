@@ -10,6 +10,11 @@
   [[?e :db/ident ?attr]]
   =>
   (insert! [?e :schemas/one-to-many ?attr]))
+
+(defsub :fact-format
+  [[:global :fact-format ?v]]
+  =>
+  {:fact-format ?v})
 ;
 ;
 (defsub :schemas

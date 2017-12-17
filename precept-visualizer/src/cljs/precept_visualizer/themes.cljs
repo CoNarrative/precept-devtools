@@ -8,3 +8,10 @@
    :accent-text-color "peachpuff"
    :text-color "#ffffffc7"})
 
+(def light
+  {:background-color "white"
+   :primary "blue"
+   :secondary "red"
+   :pre-background-color "#f8f8f845"
+   :accent-text-color "peachpuff"
+   :text-color "black"})

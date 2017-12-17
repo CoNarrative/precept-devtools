@@ -19,9 +19,10 @@
   (insert-unconditional! [{:db/id :global
                            :tracking/sync? true
                            :view/mode :diff}
-                          {:db/id ::themes
-                           ::themes/selected ::themes/dark}
+                          {:db/id :themes
+                           :themes/selected ::themes/dark}
                           (merge {:db/id ::themes/dark} themes/dark)
+                          (merge {:db/id ::themes/light} themes/light)
                           {:db/id :windows
                            :explanations/width-percent 0
                            :main/width-percent 50}]))
@@ -185,10 +186,12 @@
   {:payload ?explanations})
 
 (defsub :selected-theme
-  [[::themes ::themes/selected ?eid]]
+  [[:themes :themes/selected ?eid]]
   [?kvs <- (acc/all (juxt :a :v)) :from [?eid :all]]
   =>
-  {:theme (into {} ?kvs)})
+  (let [_ (println "selected theme sub" ?eid)]
+    {:selected-theme ?eid
+     :theme (into {} ?kvs)}))
 
 
 
