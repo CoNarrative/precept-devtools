@@ -43,30 +43,23 @@
                   :on-change #(conseq/tracking-state-number (-> % .-target .-value js/Number))}]]))
 
 ;;;;;;; topbar ns ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;(def topbar-state (r/atom {:open-menus []}))
-;(def local-db (r/atom {:open-menus []}))
-;(first (:open-menus @local-db))
 
-;[0
-; [0
-;  [0 1])
 (def topbar-menu-items
   [{:label "Themes"
     :children [{:label "Dark"
-                :selected? (fn [state] (= ::themes/dark (:selected-theme @state)))
-                :on-click #(precept.core/then [:themes :themes/selected ::themes/dark])}
+                :selected? (fn [state] (-> state :selected-theme (= ::themes/dark)))
+                :on-click #(conseq/theme-is ::themes/dark)}
                {:label "Light"
-                :selected? (fn [state] (= ::themes/light (:selected-theme @state)))
-                :on-click #(do (println "inserting light"[::themes ::themes/selected ::themes/light])
-                             (precept.core/then [:themes :themes/selected ::themes/light]))}]}
+                :selected? (fn [state] (-> state :selected-theme (= ::themes/light)))
+                :on-click #(conseq/theme-is ::themes/light)}]}
    {:label "Settings"
     :children [{:label "Fact format"
                 :icon ">"
                 :children [{:label "Vector"
-                            :selected? (fn [state] (= (:fact-format @state) :vector))
+                            :selected? (fn [state] (-> state :fact-format (= :vector)))
                             :on-click #(precept.core/then [:settings :settings/fact-format :vector])}
                            {:label "Map"
-                            :selected? (fn [state] (= (:fact-format @state) :map))
+                            :selected? (fn [state] (-> state :fact-format (= :map)))
                             :on-click #(precept.core/then [:settings :settings/fact-format :map])}]}]}])
 
 
@@ -76,14 +69,15 @@
         on-click (:on-click item)]
     [:div {:style {:display "flex"
                    :cursor "default"}
-           :on-click #(do (println "clicked")
-                          (-> local-db (on-click)))}
-     (:label item)]))
+           :on-click #(-> local-db (on-click))}
+     (:label item)
+     (when (selected?-predicate @local-db)
+       " $")]))
 
 
 (defn menu-child-menu [local-db i items]
   [:div {:style {:position "absolute"
-                 :background "rgba(49, 52, 57, .9)"
+                 :background (:background-color (:theme @local-db))
                  :padding "0px 20px"
                  :width 200}}
    (map-indexed
@@ -92,30 +86,29 @@
      items)])
 
 (defn on-menu-item-mouse-enter [state path props]
-  (println "menu item mouse enter")
   (swap! state assoc :hovered-item path)
   (when (:children props)
     (swap! state assoc :open-menus path)))
 
 (defn on-menu-item-mouse-leave [state]
-  (println "menu item mouse leave")
   (swap! state dissoc :hovered-item))
 
 (defn menu-item [local-db path props]
   (let [open-menus (:open-menus @local-db)
-        on-click (or (:on-click props) identity)]
+        on-click (or (:on-click props) identity)
+        selected?-fn (or (:selected? props) (constantly nil))]
     [:div
      {:style {:display "flex"
               :background (if (= path (:hovered-item @local-db))
                             "rgba(255,255,255,0.2)" "transparent")}
       :on-mouse-enter #(on-menu-item-mouse-enter local-db path props)}
-      ;:on-click #(-> local-db (:on-click props))}
-      ;:on-mouse-leave #(on-menu-item-mouse-leave local-db)}
      [:div {:style {:width 200 :cursor "default"}
             :on-click #(-> local-db (on-click))}
        (:label props)
        (when-let [icon (:icon props)]
-         icon)]
+         icon)
+       (when-let [selected? (selected?-fn @local-db)]
+         " $")]
      (when (and (:children props) (= path open-menus))
        [:div {:style {:position "relative" :right 0}}
          [menu-child-menu
@@ -136,14 +129,14 @@
     (swap! state update :open-menus (fn [v] (into [] (remove #{i} v))))))
 
 (defn menu-header-item [local-db i label children]
-  (let [open? (= i (first (:open-menus @local-db)))]
+  (let [open? (= i (first (:open-menus @local-db)))
+        _ (println "header item" @local-db)]
    [:div
     {:style {:background (if open? "blue" "transparent")
              :padding-right 12
              :padding-left 12}
      :on-click #(on-header-item-click local-db i)
      :on-mouse-enter #(on-header-item-mouse-enter local-db i)}
-     ;:on-mouse-leave #(on-header-item-mouse-leave local-db i)}
     label
     (when open?
       [:div {:style {:position "absolute"
@@ -157,12 +150,13 @@
           children)])]))
 
 (defn menu-header [topbar-menu-items settings theme]
-  (let [local-db (r/atom (merge @settings @theme {:open-menus []}))]
+  (let [local-db (r/atom (merge @settings @theme {:open-menus []}))
+        _ (println "menu header theme" @theme)]
     [:div {:style {:display "flex"
                    :height 24
                    :vertical-align "middle"
                    :opacity 0.82
-                   :background (:background-color theme)}}
+                   :background (:background-color (:theme @theme))}}
        (map-indexed
          (fn [i {:keys [label children]}]
            ^{:key i} [menu-header-item local-db i label children])

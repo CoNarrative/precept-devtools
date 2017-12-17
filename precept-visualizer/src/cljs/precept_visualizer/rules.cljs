@@ -187,11 +187,12 @@
   {:payload ?explanations})
 
 (defsub :selected-theme
-  [[:themes :themes/selected ?eid]]
+  [[:settings :settings/selected-theme-id ?eid]]
   [?kvs <- (acc/all (juxt :a :v)) :from [?eid :all]]
   =>
-  {:selected-theme ?eid
-   :theme (into {} ?kvs)})
+  (let [_ (println "sel them sub" ?eid)]
+    {:selected-theme ?eid
+     :theme (into {} ?kvs)}))
 
 (defsub :settings
   [[:settings :settings/selected-theme-id ?theme-id]]

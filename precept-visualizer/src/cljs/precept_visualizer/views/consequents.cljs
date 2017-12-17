@@ -17,3 +17,6 @@
 
 (defn stop-explain-fact-requested [fact-str]
   (then [:transient :stop-explain-fact-requested fact-str]))
+
+(defn theme-is [theme-id]
+  (then [:settings :settings/selected-theme-id theme-id]))
