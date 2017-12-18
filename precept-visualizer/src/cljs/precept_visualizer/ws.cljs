@@ -72,6 +72,7 @@
 (defmethod handle-message :visualizer/init [[_ payload]]
   (println ":visualizer/init")
   (reset! state/orm-ratom (:orm-states payload))
+  (reset! state/rule-definitions (:rule-definitions payload))
   (precept/then (:facts payload))
   (precept/then (:schemas payload)))
 
