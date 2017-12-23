@@ -72,7 +72,7 @@
                                    "prettify-all-facts with :map option
                                    requires :one-to-many option to be a set"
                                    {})
-  (ast->datomic-maps facts one-to-many))
+  (ast->datomic-maps facts one-to-many {:trim-uuids? true}))
 
 ;; TODO. Would this be better as a multimethod? Seems like it would reduce
 ;; checking the options every iteration to just once without losing expressivity
@@ -260,12 +260,13 @@
 
 
 (defn matchable-tokens-in-condition
+  "Returns a seq of tokens from a condition that may have been matched on."
   [condition]
   (reduce
     (fn [acc token]
       (cond
         (vector? token)
-        (concat acc (matchable-tokens-in-condition token)) ;;really a vector, not a "token"
+        (concat acc (matchable-tokens-in-condition token)) ;; Recur on the vector to iterate over tokens
 
         ;; Return all variable bindings in sexprs
         (list? token) ;; could be an accumulator
@@ -331,7 +332,7 @@
 (defn ast->datomic-maps
   "Converts :e :a :v :t maps (or coll of them) to :db/id map (or coll of them)
   Returns values of attributes in the one-to-many arg set as collections."
-  [facts one-to-many]
+  [facts one-to-many {:keys [trim-uuids?] :as options :or {}}]
   (->> facts
     (clojure.walk/postwalk
       (fn [x]
@@ -343,7 +344,8 @@
           (let [value (if (contains? one-to-many (:a x))
                         (vector (:v x))
                         (:v x))]
-            {:db/id (:e x) (:a x) value})
+            {:db/id (if trim-uuids? (trim-uuid (:e x)) (:e x))
+             (:a x) value})
 
           (and (coll? x) (every? #(contains? % :db/id) x))
           ;; Each id (k) in col, return a map with that k as :db/id
