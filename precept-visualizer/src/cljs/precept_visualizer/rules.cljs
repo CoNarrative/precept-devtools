@@ -132,6 +132,83 @@
   =>
   {:payload ?windows})
 
+(rule on-view-rule-history-requested
+  {:group :action}
+  [[:transient :rule-history/request ?name]]
+  [[?rule :rule/display-name ?name]]
+  [[?event :event/rule ?rule]]
+  [[?state :state/events ?event]]
+  [[?state :state/number ?state-number]]
+  [[?event :event/number ?event-number]]
+  =>
+  (println "viewing history for " ?name ?event ?state-number ?event-number)
+  (insert-unconditional!
+    {:db/id ?name ;; should use rule eid but not unique. Maybe just make kw rule-history/therulename as a kind of namespaced entity id
+     :rule-history/event-id ?event
+     :rule-history/rule-name ?name
+     :rule-history/event-coords [[?state-number ?event-number]]}))
+
+(rule on-clear-rule-history-requested
+  {:group :action}
+  [[:transient :rule-history/clear-request ?rule-name]]
+  [(<- ?rule-history-entity (entity ?rule-name))]
+  =>
+  (retract! ?rule-history-entity))
+
+(rule show-closest-to-current-when-no-selected-rule-history-index
+ {:group :report}
+ [:exists [?e :rule-history/rule-name]]
+ [:not [?e :rule-history/selected-state-number]]
+ [:not [?e :rule-history/selected-event-number]]
+ [?earliest-history-coordinate <- (acc/min (comp first :v) :returns-fact true)
+  :from [?e :rule-history/event-coords]]
+ =>
+ (let [[state-number event-number] (:v ?earliest-history-coordinate)]
+   (println "Inserting active history coord for rule" ?e ?earliest-history-coordinate)
+   (insert-unconditional!
+     {:db/id ?e
+      :rule-history/selected-state-number state-number
+      :rule-history/selected-event-number event-number})))
+
+(rule fetch-log-entry-if-not-exists-when-rule-history-selected
+  [[?e :rule-history/selected-state-number ?state-number]]
+  [[?e :rule-history/selected-event-number ?event-number]]
+  [[?e :rule-history/event-id ?event-id]]
+  [:not [?event-id :event/log-entry]]
+  =>
+  (ws/get-log-entry-by-coords [?state-number ?event-number])
+  (println "Selected rule history state event for rule" ?e ?state-number ?event-number))
+
+(rule rule-history-selected-log-entry
+  [[?e :rule-history/selected-state-number]]
+  [[?e :rule-history/selected-event-number]]
+  [[?e :rule-history/event-id ?event-id]]
+  [[?event-id :event/log-entry ?log-entry]]
+  =>
+  (println "inserting log entry for rule history" ?log-entry)
+  (insert! [?e :rule-history/selected-log-entry ?log-entry]))
+
+(defsub :rule-history
+  [[?e :rule-history/selected-state-number]]
+  [[?e :rule-history/selected-event-number]]
+  [[?e :rule-history/selected-log-entry ?log-entry]]
+  =>
+  {:name ?e
+   :log-entry ?log-entry})
+
+
+;; and current state has event with that fact's value
+;[[?state-id :state/number ?current-state-number]]
+;[[?state-id :state/events ?event-id]]
+;[[?event-id :event/facts ?fact-id]]
+;[[?fact-id :fact/string ?fact-str]]
+;[[?event-id :event/log-entry ?log-entry]]
+
+;(rule available-rule-history-coordinates
+;  [[?e :rule-history/name]]
+;  [(acc/all :v) :from [?e]]))
+;; ?history-items-for-rule <- (acc/count) :from [?e :rule-history/rule-name]
+
 ; TODO. max history of fact default to 5?
 ;(rule print-added-fact-info-1
 ;  [[_ :tracking/state-number ?state-number]]

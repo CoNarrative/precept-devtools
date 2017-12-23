@@ -23,3 +23,9 @@
 
 (defn fact-format-is [kw]
   (then [:settings :settings/fact-format kw]))
+
+(defn viewing-rule-history [name show?]
+  (println "show name" show? name)
+  (if show?
+    (then [:transient :rule-history/request name])
+    (then [:transient :rule-history/clear-request name])))

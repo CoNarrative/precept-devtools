@@ -154,6 +154,11 @@
       :db.type/hash-map
       :db/unique :db.unique/identity)
 
+    (attribute :rule-history/event-coords
+      :db.type/vector
+      :db/cardinality :db.cardinality/many)
+
+
     (attribute :schemas/one-to-many
       :db.type/keyword
       :db/cardinality :db.cardinality/many)])

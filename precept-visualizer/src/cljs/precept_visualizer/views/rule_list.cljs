@@ -1,6 +1,9 @@
 (ns precept-visualizer.views.rule-list
   (:require [precept-visualizer.util :as util]
-            [net.cgrand.packed-printer :as packed]))
+            [precept-visualizer.views.consequents :as conseq]
+            [net.cgrand.packed-printer :as packed]
+            [precept-visualizer.views.explanations :as explanations]
+            [precept.core :as precept]))
 
 (defn prettify-rule [s]
   (let [[left right] (-> s (clojure.string/split #"=>") #_(clojure.string/split #":-"))]
@@ -12,22 +15,32 @@
         (->> (clojure.string/join \newline)))))
 
 
-(defn rule-item [{:keys [name type source] :as rule}]
-  [:div
-   [:strong name]
-   [:div type]
-   [:pre (if (#{"rule" "subscription"} type)
-           (prettify-rule (str source))
-           (str source))]])
+(defn rule-item [{:keys [name type source] :as rule} history]
+  (let [_ (println "rule item history" history)]
+    [:div
+     [:div {:style {:display "flex" :justify-content "flex-end"}}
+      [:div
+       {:on-click #(conseq/viewing-rule-history (str name) (not (boolean history)))} ;; TODO. stringify before here
+       (if history "Hide history" "Show history")]]
+     [:strong name]
+     [:div type]
+     [:pre (if (#{"rule" "subscription"} type)
+             (prettify-rule (str source))
+             (str source))]
+     (when history
+       [explanations/explanation {:event history}])]))
+
 
 
 (defn rule-list [rules]
-  (let [_ (println "got rules" @rules)]
-    (if (empty? @rules)
-      [:div])
+  (let [rule-history @(precept/subscribe [:rule-history])
+        _ (println "rule sub" rule-history)]
     [:div {:style {:display "flex" :flex-direction "column"}}
       (for [rule @rules]
-        ^{:key (:name rule)} [rule-item rule])]))
+        (let [history (when (= (str (:name rule))
+                               (:name rule-history))
+                        (:log-entry rule-history))]
+          ^{:key (:name rule)} [rule-item rule history]))]))
 
 ;(packed/pprint
 ;  (prettify-rule

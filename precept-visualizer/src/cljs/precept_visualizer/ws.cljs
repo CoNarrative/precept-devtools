@@ -66,11 +66,12 @@
 
 (defmulti handle-message first)
 
-(defmethod handle-message any? [x] (println "Something" x))
 (defmethod handle-message :chsk/ws-ping [_])
 
 (defmethod handle-message :visualizer/init [[_ payload]]
   (println ":visualizer/init")
+  (println "Initial facts:")
+  (cljs.pprint/pprint (:facts payload))
   (reset! state/orm-ratom (:orm-states payload))
   (reset! state/rule-definitions (:rule-definitions payload))
   (precept/then (:facts payload))
