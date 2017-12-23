@@ -1,15 +1,36 @@
 (ns precept-visualizer.views.rule-list
-  (:require [precept-visualizer.util :as util]))
+  (:require [precept-visualizer.util :as util]
+            [net.cgrand.packed-printer :as packed]))
+
+(defn prettify-rule [s]
+  (let [[left right] (-> s (clojure.string/split #"=>") #_(clojure.string/split #":-"))]
+    (-> left
+        (clojure.string/trim)
+        (clojure.string/replace #" \[" "\n[")
+        (vector)
+        (concat ["=>" (clojure.string/trim right)])
+        (->> (clojure.string/join \newline)))))
 
 
-(defn rule-item [rule]
-  [:div (:display-name rule)])
+(defn rule-item [{:keys [name type source] :as rule}]
+  [:div
+   [:strong name]
+   [:div type]
+   [:pre (if (#{"rule" "subscription"} type)
+           (prettify-rule (str source))
+           (str source))]])
 
 
 (defn rule-list [rules]
-  (let [user-rules (sort-by :type (remove util/impl-rule? rules))
-        impl-rules (sort-by :type (filter util/impl-rule? rules))]
+  (let [_ (println "got rules" @rules)]
+    (if (empty? @rules)
+      [:div])
     [:div {:style {:display "flex" :flex-direction "column"}}
-     (for [rule user-rules]
-       ^{:key (:id rule)} [rule-item (util/display-text rule)])]))
+      (for [rule @rules]
+        ^{:key (:name rule)} [rule-item rule])]))
 
+;(packed/pprint
+;  (prettify-rule
+;    "(rule less-than-500 [:and [?e :random-number ?v] [:not [?e :greater-than-500]] [:not [:global :random-number ?v]]] => (insert! [?e :less-than-500 true]))"))
+
+;(println (prettify-rule "(rule entities-with-greater-than-500 [[?e :greater-than-500]] [(<- ?fact (entity ?e))] => (insert! [:report :entity>500 ?fact]))"))

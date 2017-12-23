@@ -23,7 +23,7 @@
                      :width (str (or (:main/width-percent windows) "100") "vw")}}
        [diff/diff-view theme schemas]
        [:h4 "Rules"]
-       [rule-list/rule-list (vals @rules)]
+       [rule-list/rule-list rules]
        [state-tree/main store theme]]
       [explanations/explanations theme windows]]]))
 

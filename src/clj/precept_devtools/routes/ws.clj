@@ -83,6 +83,7 @@
     (swap! db/db update :log #(into [] (conj % (txs/merge-schema-actions events))))
     (swap! db/db update :states (fn [xs] (into [] (conj xs facts))))
     (precept/then facts)
+    ;(binding [*print-namespace-maps* false]
     (doseq [uid (:visualizer-uids @db/db)]
       (println "Notifying visualizer client ... " uid)
       ((:send-fn m) uid [:state/update payload]))))
