@@ -18,13 +18,18 @@
   (-> history-event-entities
       (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
       (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
-      (->> (map #(reduce merge %)))
+      (->> (reduce concat))
       (->> (sort
-             (fn [a b] (if (and (> (:rule-history.event/state-number a)
-                                   (:rule-history.event/state-number b))
-                                (> (:rule-history.event/event-number a)
-                                   (:rule-history.event/event-number b)))
-                         1 -1))))))
+             (fn [a b] (if (> (:rule-history.event/state-number a)
+                              (:rule-history.event/state-number b))
+                           1
+                           (if (not= (:rule-history.event/state-number a)
+                                     (:rule-history.event/state-number b))
+                             -1
+                             (if (> (:rule-history.event/event-number a)
+                                    (:rule-history.event/event-number b))
+                                1
+                                -1))))))))
 
 (rule initial-facts
   {:group :action}
@@ -186,7 +191,8 @@
     [(<- ?history-events (entities ?ids))]
     =>
     (let [sorted-history-events (sort-rule-history-tracker-events ?history-events)]
-      (println "History events" ?rule-history sorted-history-events ?history-events)
+      (println "History events")
+      (cljs.pprint/pprint sorted-history-events)
       (insert! [?rule-history :rule-history/sorted-event-maps sorted-history-events])))
 
 (rule show-closest-to-current-when-no-selected-rule-history-index

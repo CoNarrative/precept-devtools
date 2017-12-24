@@ -15,7 +15,7 @@
         (->> (clojure.string/join \newline)))))
 
 
-(defn rule-item [{:keys [name type source] :as rule} history]
+(defn rule-item [{:keys [name type source] :as rule} history theme]
   (let [_ (println "rule item history" history)]
     [:div
      [:div {:style {:display "flex" :justify-content "flex-end"}}
@@ -28,11 +28,11 @@
              (prettify-rule (str source))
              (str source))]
      (when history
-       [explanations/explanation {:event history}])]))
+       [explanations/explanation {:event history} theme])]))
 
 
 
-(defn rule-list [rules]
+(defn rule-list [rules theme]
   (let [rule-history @(precept/subscribe [:rule-history])
         _ (println "rule sub" rule-history)]
     [:div {:style {:display "flex" :flex-direction "column"}}
@@ -40,7 +40,7 @@
         (let [history (when (= (str (:name rule))
                                (:name rule-history))
                         (:log-entry rule-history))]
-          ^{:key (:name rule)} [rule-item rule history]))]))
+          ^{:key (:name rule)} [rule-item rule history theme]))]))
 
 ;(packed/pprint
 ;  (prettify-rule

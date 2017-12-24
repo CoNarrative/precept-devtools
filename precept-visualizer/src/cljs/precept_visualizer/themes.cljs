@@ -6,7 +6,8 @@
    :secondary "#f03c69"
    :pre-background-color "#f8f8f845"
    :accent-text-color "peachpuff"
-   :text-color "#ffffffc7"})
+   :text-color "#ffffffc7"
+   :inverted-text-color "whitesmoke"})
 
 (def light
   {:background-color "white"
@@ -14,4 +15,5 @@
    :secondary "red"
    :pre-background-color "#f8f8f845"
    :accent-text-color "peachpuff"
-   :text-color "black"})
+   :text-color "black"
+   :inverted-text-color "white"})

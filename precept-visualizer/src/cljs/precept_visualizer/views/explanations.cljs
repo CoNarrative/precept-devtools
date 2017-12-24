@@ -154,7 +154,7 @@
       [:span {:class "label black"}
        (str "State " state-number)]
       [:span {:class "label outline"
-              :style {:color "white" #_(:text-color theme)}}
+              :style {:color (:text-color theme)}}
        (str "Event " event-number)]]
 
      [rule-name name theme]

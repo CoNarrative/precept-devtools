@@ -347,7 +347,7 @@
             {:db/id (if trim-uuids? (trim-uuid (:e x)) (:e x))
              (:a x) value})
 
-          (and (coll? x) (every? #(and (map? x) (contains? % :db/id)) x))
+          (and (coll? x) (every? #(contains? % :db/id) x))
           ;; Each id (k) in col, return a map with that k as :db/id
           ;; plus the reduction of its group (v)
           ;; respecting one-to-many relationships
