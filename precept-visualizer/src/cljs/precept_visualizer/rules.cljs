@@ -8,9 +8,23 @@
             [precept-visualizer.mouse :as mouse]
             [precept-visualizer.state :as state]
             [precept-visualizer.schema :refer [db-schema client-schema]]
+            [precept-visualizer.event-parser :as event-parser]
             ;; TODO. Rename other-rules ns
             [precept-visualizer.other-rules]
             [precept-visualizer.ws :as ws]))
+
+
+(defn sort-rule-history-tracker-events [history-event-entities]
+  (-> history-event-entities
+      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
+      (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
+      (->> (map #(reduce merge %)))
+      (->> (sort
+             (fn [a b] (if (and (> (:rule-history.event/state-number a)
+                                   (:rule-history.event/state-number b))
+                                (> (:rule-history.event/event-number a)
+                                   (:rule-history.event/event-number b)))
+                         1 -1))))))
 
 (rule initial-facts
   {:group :action}
@@ -132,68 +146,83 @@
   =>
   {:payload ?windows})
 
+(rule on-clear-rule-history-requested
+      {:group :action}
+      [[:transient :rule-history/clear-request ?rule-name]]
+      [(<- ?rule-history-entity (entity ?rule-name))]
+      =>
+      (retract! ?rule-history-entity))
+
 (rule on-view-rule-history-requested
   {:group :action}
-  [[:transient :rule-history/request ?name]]
-  [[?rule :rule/display-name ?name]]
-  [[?event :event/rule ?rule]]
-  [[?state :state/events ?event]]
-  [[?state :state/number ?state-number]]
-  [[?event :event/number ?event-number]]
+  [[:transient :rule-history/request ?rule-name]]
   =>
-  (println "viewing history for " ?name ?event ?state-number ?event-number)
-  (insert-unconditional!
-    {:db/id ?name ;; should use rule eid but not unique. Maybe just make kw rule-history/therulename as a kind of namespaced entity id
-     :rule-history/event-id ?event
-     :rule-history/rule-name ?name
-     :rule-history/event-coords [[?state-number ?event-number]]}))
+  (insert-unconditional! {:db/id (util/guid)
+                          :rule-history/rule-name ?rule-name
+                          :rule-history/user-selected-entry-unset? true}))
 
-(rule on-clear-rule-history-requested
-  {:group :action}
-  [[:transient :rule-history/clear-request ?rule-name]]
-  [(<- ?rule-history-entity (entity ?rule-name))]
+(rule history-entry-when-rule-history-for-rule
+  [[?rule-history :rule-history/rule-name ?rule-name]]
+
+  [[?rule-id :rule/display-name ?rule-name]]
+  [[?event-id :event/rule ?rule-id]]
+  [[?event-id :event/number ?event-number]]
+  [[?state-id :state/events ?event-id]]
+  [[?state-id :state/number ?state-number]]
   =>
-  (retract! ?rule-history-entity))
+  (let [rule-event-eid (util/guid)]
+    (println "History for rule exists at " ?rule-name ?event-id)
+    (insert!
+      [{:db/id ?rule-history
+        :rule-history/event-ids [rule-event-eid]}
+       {:db/id rule-event-eid
+        :rule-history.event/event-id ?event-id
+        :rule-history.event/state-number ?state-number
+        :rule-history.event/event-number ?event-number}])))
+
+(rule sorted-rule-events-when-tracking-history
+    [[?rule-history :rule-history/rule-name]]
+    [?ids <- (acc/all :v) :from [?rule-history :rule-history/event-ids]]
+    [(<- ?history-events (entities ?ids))]
+    =>
+    (let [sorted-history-events (sort-rule-history-tracker-events ?history-events)]
+      (println "History events" ?rule-history sorted-history-events ?history-events)
+      (insert! [?rule-history :rule-history/sorted-event-maps sorted-history-events])))
 
 (rule show-closest-to-current-when-no-selected-rule-history-index
- {:group :report}
- [:exists [?e :rule-history/rule-name]]
- [:not [?e :rule-history/selected-state-number]]
- [:not [?e :rule-history/selected-event-number]]
- [?earliest-history-coordinate <- (acc/min (comp first :v) :returns-fact true)
-  :from [?e :rule-history/event-coords]]
+ [[?rule-history :rule-history/user-selected-entry-unset? true]]
+ [[?rule-history :rule-history/sorted-event-maps ?sorted-events]]
  =>
- (let [[state-number event-number] (:v ?earliest-history-coordinate)]
-   (println "Inserting active history coord for rule" ?e ?earliest-history-coordinate)
-   (insert-unconditional!
-     {:db/id ?e
-      :rule-history/selected-state-number state-number
-      :rule-history/selected-event-number event-number})))
+ (let [first-event (first ?sorted-events)]
+   (println "inserting first rule history event" first-event)
+   (insert! {:db/id ?rule-history
+             :rule-history/selected-state-number (:rule-history.event/state-number first-event)
+             :rule-history/selected-event-number (:rule-history.event/event-number first-event)
+             :rule-history/selected-event-id (:rule-history.event/event-id first-event)})))
 
 (rule fetch-log-entry-if-not-exists-when-rule-history-selected
-  [[?e :rule-history/selected-state-number ?state-number]]
-  [[?e :rule-history/selected-event-number ?event-number]]
-  [[?e :rule-history/event-id ?event-id]]
+  [[?rule-history :rule-history/selected-event-id ?event-id]]
   [:not [?event-id :event/log-entry]]
+  [[?rule-history :rule-history/selected-state-number ?state-number]]
+  [[?rule-history :rule-history/selected-event-number ?event-number]]
   =>
   (ws/get-log-entry-by-coords [?state-number ?event-number])
-  (println "Selected rule history state event for rule" ?e ?state-number ?event-number))
+  (println "Selected rule history state event for rule" ?rule-history ?state-number ?event-number))
 
 (rule rule-history-selected-log-entry
-  [[?e :rule-history/selected-state-number]]
-  [[?e :rule-history/selected-event-number]]
-  [[?e :rule-history/event-id ?event-id]]
+  [[?e :rule-history/selected-event-id ?event-id]]
   [[?event-id :event/log-entry ?log-entry]]
   =>
-  (println "inserting log entry for rule history" ?log-entry)
+  (println "Inserting log entry for rule history" ?e ?event-id ?log-entry)
   (insert! [?e :rule-history/selected-log-entry ?log-entry]))
 
 (defsub :rule-history
+  [[?e :rule-history/rule-name ?rule-name]]
   [[?e :rule-history/selected-state-number]]
   [[?e :rule-history/selected-event-number]]
   [[?e :rule-history/selected-log-entry ?log-entry]]
   =>
-  {:name ?e
+  {:name ?rule-name
    :log-entry ?log-entry})
 
 

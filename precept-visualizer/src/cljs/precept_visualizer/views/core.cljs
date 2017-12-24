@@ -10,8 +10,7 @@
 (defn main [{:keys [rules store]}]
   (let [windows (first (:payload @(precept/subscribe [:windows])))
         theme (:theme @(precept/subscribe [:selected-theme]))
-        schemas @(precept/subscribe [:schemas])
-        _ (println "rule defs" @precept-visualizer.state/rule-definitions)]
+        schemas @(precept/subscribe [:schemas])]
     [:div {:style {:display "flex"
                    :flex-direction "column"
                    :color (:text-color theme)

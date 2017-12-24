@@ -20,7 +20,7 @@
 
   :main precept-visualizer.core
 
-  :source-paths ["src/cljs"]
+  :source-paths ["src/cljs" "src/cljc"]
 
   :test-paths ["test/cljs"]
 
@@ -43,7 +43,7 @@
     :plugins      [[lein-figwheel "0.5.11"]]
 
     :repl-options {:init-ns user}
-    :source-paths ["src/clj"]
+    :source-paths ["src/cljs" "src/cljc"]
     :resource-paths ["env/dev/resources"]
 
     :cljsbuild
