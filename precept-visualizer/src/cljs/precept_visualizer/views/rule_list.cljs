@@ -31,19 +31,16 @@
        [explanations/explanation {:event history} theme])]))
 
 
+(defn key-by [f coll]
+  (reduce
+    (fn [acc m]
+      (assoc acc (f m) m))
+    {}
+    coll))
 
 (defn rule-list [rules theme]
-  (let [rule-history @(precept/subscribe [:rule-history])
-        _ (println "rule sub" rule-history)]
+  (let [rule-history (key-by :name (:subs @(precept/subscribe [:rule-history])))]
     [:div {:style {:display "flex" :flex-direction "column"}}
       (for [rule @rules]
-        (let [history (when (= (str (:name rule))
-                               (:name rule-history))
-                        (:log-entry rule-history))]
+        (let [history (get-in rule-history [(str (:name rule)) :log-entry])]
           ^{:key (:name rule)} [rule-item rule history theme]))]))
-
-;(packed/pprint
-;  (prettify-rule
-;    "(rule less-than-500 [:and [?e :random-number ?v] [:not [?e :greater-than-500]] [:not [:global :random-number ?v]]] => (insert! [?e :less-than-500 true]))"))
-
-;(println (prettify-rule "(rule entities-with-greater-than-500 [[?e :greater-than-500]] [(<- ?fact (entity ?e))] => (insert! [:report :entity>500 ?fact]))"))

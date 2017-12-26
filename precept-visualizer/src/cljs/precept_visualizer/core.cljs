@@ -6,7 +6,7 @@
             [precept-visualizer.views.core :as views]
             [mount.core :as mount]
             [devtools.core :as binaryage-devtools]
-            [precept-visualizer.rules :refer [visualizer-session]]
+            [precept-visualizer.rules-core :refer [visualizer-session]]
             [precept-visualizer.ws :as ws]
             [precept-visualizer.state :as viz-state]
             [precept-visualizer.mouse :as mouse]))

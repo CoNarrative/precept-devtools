@@ -1,4 +1,4 @@
-(ns precept-visualizer.rules
+(ns precept-visualizer.rules-core
   (:require-macros [precept.dsl :refer [<- entity entities]])
   (:require [precept.rules :refer [rule define session defsub]]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
@@ -82,15 +82,16 @@
 (rule on-clear-rule-history-requested
    {:group :action}
    [[:transient :rule-history/clear-request ?rule-name]]
-   [(<- ?rule-history-entity (entity ?rule-name))]
+   [?rule-history <- [_ :rule-history/rule-name ?rule-name]]
    =>
-   (retract! ?rule-history-entity))
+   (retract! ?rule-history))
 
 
 (rule on-view-rule-history-requested
   {:group :action}
   [[:transient :rule-history/request ?rule-name]]
   =>
+  (println "Rule history requested for rule name " ?rule-name)
   (insert-unconditional! {:db/id (util/guid)
                           :rule-history/rule-name ?rule-name
                           :rule-history/user-selected-entry-unset? true}))
@@ -119,25 +120,34 @@
   [[?state-id :state/number ?state-number]]
   =>
   (let [rule-event-eid (util/guid)]
-    (println "History for rule exists at " ?rule-name ?event-id)
-    (insert!
-      [{:db/id ?rule-history
-        :rule-history/event-ids [rule-event-eid]}
-       {:db/id rule-event-eid
-        :rule-history.event/event-id ?event-id
-        :rule-history.event/state-number ?state-number
-        :rule-history.event/event-number ?event-number}])))
+    (println "History event for rule exists at "
+             {:rule-name ?rule-name
+              :event-id ?event-id
+              :history-event-id rule-event-eid
+              :state-number ?state-number
+              :event-number ?event-number})
+    (insert! [[?rule-history :rule-history/event-ids rule-event-eid]
+              [rule-event-eid :rule-history.event/event-id ?event-id]
+              [rule-event-eid :rule-history.event/state-number ?state-number]
+              [rule-event-eid :rule-history.event/event-number ?event-number]])))
 
 
 (rule sorted-rule-events-when-tracking-history
-  [[?rule-history :rule-history/rule-name]]
-  [?ids <- (acc/all :v) :from [?rule-history :rule-history/event-ids]]
-  [(<- ?history-events (entities ?ids))]
+  [[?rule-history :rule-history/rule-name ?rule-name]]
+  [[?rule-history :rule-history/event-ids ?rule-history-event]]
+  [[?rule-history-event :rule-history.event/event-id ?event-id]]
+  [(<- ?rule-history-event-meta (entity ?rule-history-event))]
   =>
-  (let [sorted-history-events (sort-rule-history-tracker-events ?history-events)]
-    (println "History events")
-    (cljs.pprint/pprint sorted-history-events)
-    (insert! [?rule-history :rule-history/sorted-event-maps sorted-history-events])))
+  (println "Rule history event meta" ?rule-history-event-meta)
+  (insert! [?rule-history :rule-history/event-meta ?rule-history-event-meta]))
+
+
+(rule rule-history-events-in-order
+  [[?rule-history :rule-history/rule-name]]
+  [?history-events <- (acc/all :v) :from [?rule-history :rule-history/event-meta]]
+  =>
+  (println "History events" ?history-events)
+  (insert! [?rule-history :rule-history/sorted-event-maps (sort-rule-history-tracker-events ?history-events)]))
 
 
 (rule show-closest-to-current-when-no-selected-rule-history-index
@@ -145,7 +155,7 @@
  [[?rule-history :rule-history/sorted-event-maps ?sorted-events]]
  =>
  (let [first-event (first ?sorted-events)]
-   (println "inserting first rule history event" first-event)
+   (println "Inserting first rule history event and selected event id for rule-history id" ?rule-history (:rule-history.event/event-id first-event))
    (insert! {:db/id ?rule-history
              :rule-history/selected-state-number (:rule-history.event/state-number first-event)
              :rule-history/selected-event-number (:rule-history.event/event-number first-event)
@@ -261,13 +271,15 @@
   {:state/added ?added
    :state/removed ?removed})
 
+(define [?e :rule-history/sub {:name ?rule-name :log-entry ?log-entry}]
+  :- [[?e :rule-history/rule-name ?rule-name]]
+     [[?e :rule-history/selected-log-entry ?log-entry]])
 
 (defsub :rule-history
-  [[?e :rule-history/rule-name ?rule-name]]
-  [[?e :rule-history/selected-log-entry ?log-entry]]
+  [?subs <- (acc/all :v) :from [_ :rule-history/sub]]
   =>
-  {:name ?rule-name
-   :log-entry ?log-entry})
+  {:subs ?subs})
+
 
 
 (defsub :state-tree
@@ -284,7 +296,8 @@
 
 
 (session visualizer-session
-  'precept-visualizer.rules 'precept-visualizer.other-rules
+  'precept-visualizer.rules-core
+  'precept-visualizer.other-rules
   :db-schema db-schema
   :client-schema client-schema
   :reload true)

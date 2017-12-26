@@ -6,6 +6,12 @@
 
 (declare ast->datomic-maps)
 
+(s/def ::e any?)
+(s/def ::a keyword?)
+(s/def ::v any?)
+(s/def ::t number?)
+(s/def ::tuple-map (s/keys :req-un [::e ::a ::v ::t]))
+
 ;; CLJC failing on reload, copying from util here
 (defn display-eav [m] ((juxt :e :a :v) m))
 

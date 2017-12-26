@@ -154,6 +154,10 @@
       :db.type/hash-map
       :db/unique :db.unique/identity)
 
+    (attribute :rule-history/event-meta
+      :db.type/hash-map
+      :db/cardinality :db.cardinality/many)
+
     (attribute :rule-history/event-ids
       :db.type/ref
       :db/cardinality :db.cardinality/many)
