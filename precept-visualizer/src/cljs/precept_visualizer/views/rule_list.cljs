@@ -18,7 +18,9 @@
 (defn rule-item [{:keys [name type source] :as rule}
                  {:keys [log-entry selected-event-index total-event-count] :as history}
                  theme]
-  (let [_ (println "rule item history" history)]
+  (let [_ (println "rule item history" history)
+        has-prev? (> selected-event-index 0)
+        has-next? (> (dec total-event-count) selected-event-index)]
     [:div
      [:div {:style {:display "flex" :justify-content "flex-end"}}
       [:div
@@ -28,12 +30,16 @@
         [:div
          [:div {:style {:display "flex" :justify-content "space-between"}}
           [:div
-           {:on-click #(when (> selected-event-index 0)
-                         (conseq/viewing-rule-history-event (str name) (dec selected-event-index)))}
+           {:style {:cursor "pointer"
+                    :user-select "none"
+                    :color (if has-prev? (:text-color theme) (:disabled-text-color theme))}
+            :on-click #(when has-prev? (conseq/viewing-rule-history-event (str name) (dec selected-event-index)))}
            "Prev"]
           [:div
-           {:on-click #(when (> (dec total-event-count) selected-event-index)
-                         (conseq/viewing-rule-history-event (str name) (inc selected-event-index)))}
+           {:style {:cursor "pointer"
+                    :user-select "none"
+                    :color (if has-next? (:text-color theme) (:disabled-text-color theme))}
+            :on-click #(when has-next? (conseq/viewing-rule-history-event (str name) (inc selected-event-index)))}
            "Next"]]])]
      [:strong name]
      [:div type]

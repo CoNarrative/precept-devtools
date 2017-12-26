@@ -7,6 +7,7 @@
    :pre-background-color "#f8f8f845"
    :accent-text-color "peachpuff"
    :text-color "#ffffffc7"
+   :disabled-text-color "#676b72"
    :inverted-text-color "whitesmoke"})
 
 (def light
@@ -16,4 +17,5 @@
    :pre-background-color "#f8f8f845"
    :accent-text-color "peachpuff"
    :text-color "black"
+   :disabled-text-color "#ccc"
    :inverted-text-color "white"})
