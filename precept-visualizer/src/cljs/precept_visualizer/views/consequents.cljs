@@ -29,3 +29,8 @@
   (if show?
     (then [:transient :rule-history/request name])
     (then [:transient :rule-history/clear-request name])))
+
+(defn viewing-rule-history-event [rule-name event-index]
+  (then {:db/id :transient
+         :rule-history.view-event-request/rule-name rule-name
+         :rule-history.view-event-request/event-index event-index}))

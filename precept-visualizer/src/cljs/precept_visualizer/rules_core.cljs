@@ -94,7 +94,15 @@
   (println "Rule history requested for rule name " ?rule-name)
   (insert-unconditional! {:db/id (util/guid)
                           :rule-history/rule-name ?rule-name
-                          :rule-history/user-selected-entry-unset? true}))
+                          :rule-history/selected-event-index 0}))
+
+(rule on-view-rule-history-event-by-index
+  {:group :action}
+  [[:transient :rule-history.view-event-request/rule-name ?rule-name]]
+  [[:transient :rule-history.view-event-request/event-index ?event-index]]
+  [[?rule-history :rule-history/rule-name ?rule-name]]
+  =>
+  (insert-unconditional! [?rule-history :rule-history/selected-event-index ?event-index]))
 
 
 (define [:global :max-state-number ?n] :- [?n <- (acc/max :v) :from [_ :state/number]])
@@ -150,16 +158,20 @@
   (insert! [?rule-history :rule-history/sorted-event-maps (sort-rule-history-tracker-events ?history-events)]))
 
 
-(rule show-closest-to-current-when-no-selected-rule-history-index
- [[?rule-history :rule-history/user-selected-entry-unset? true]]
- [[?rule-history :rule-history/sorted-event-maps ?sorted-events]]
- =>
- (let [first-event (first ?sorted-events)]
-   (println "Inserting first rule history event and selected event id for rule-history id" ?rule-history (:rule-history.event/event-id first-event))
-   (insert! {:db/id ?rule-history
-             :rule-history/selected-state-number (:rule-history.event/state-number first-event)
-             :rule-history/selected-event-number (:rule-history.event/event-number first-event)
-             :rule-history/selected-event-id (:rule-history.event/event-id first-event)})))
+(define [?rule-history :rule-history/total-event-count (count ?sorted-maps)]
+  :- [[?rule-history :rule-history/sorted-event-maps ?sorted-maps]])
+
+
+(rule selected-history-meta-when-specified-rule-history-event-index
+  [[?rule-history :rule-history/selected-event-index ?selected-event-index]]
+  [[?rule-history :rule-history/sorted-event-maps ?sorted-events]]
+  =>
+  (when (not (empty? ?sorted-events))
+    (let [selected-event (nth ?sorted-events ?selected-event-index)]
+      (insert! {:db/id ?rule-history
+                :rule-history/selected-state-number (:rule-history.event/state-number selected-event)
+                :rule-history/selected-event-number (:rule-history.event/event-number  selected-event)
+                :rule-history/selected-event-id (:rule-history.event/event-id selected-event)}))))
 
 
 (rule fetch-log-entry-if-not-exists-when-rule-history-selected
@@ -271,9 +283,14 @@
   {:state/added ?added
    :state/removed ?removed})
 
-(define [?e :rule-history/sub {:name ?rule-name :log-entry ?log-entry}]
+(define [?e :rule-history/sub {:name ?rule-name
+                               :log-entry ?log-entry
+                               :selected-event-index ?selected-event-index
+                               :total-event-count ?total-event-count}]
   :- [[?e :rule-history/rule-name ?rule-name]]
-     [[?e :rule-history/selected-log-entry ?log-entry]])
+     [[?e :rule-history/selected-log-entry ?log-entry]]
+     [[?e :rule-history/total-event-count ?total-event-count]]
+     [[?e :rule-history/selected-event-index ?selected-event-index]])
 
 (defsub :rule-history
   [?subs <- (acc/all :v) :from [_ :rule-history/sub]]
