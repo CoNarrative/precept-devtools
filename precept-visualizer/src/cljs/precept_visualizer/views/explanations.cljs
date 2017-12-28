@@ -85,7 +85,7 @@
 
     (clojure.string/includes? name "define-")
     {:name name
-     :type :sub
+     :type :define
      :label "Define"
      :class-names ["success"]}
 
