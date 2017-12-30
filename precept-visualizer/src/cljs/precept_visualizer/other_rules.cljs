@@ -9,6 +9,7 @@
   [[?e :db/cardinality :db.cardinality/many]]
   [[?e :db/ident ?attr]]
   =>
+  (println "From other rules" ?e ?attr)
   (insert! [?e :schemas/one-to-many ?attr]))
 
 
