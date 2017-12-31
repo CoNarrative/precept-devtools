@@ -191,9 +191,21 @@
     :default
     [explanation-rule payload theme]))
 
+(defn by-state-events [state-direction event-direction]
+  (fn [& vals]
+    (let [c (cond-> (apply compare (map first vals))
+                    (= state-direction :desc) -
+                    true identity)]
+      (if (not= c 0)
+        c
+        (cond-> (apply compare (map second vals))
+                (= event-direction :desc) -
+                true identity)))))
 
 (defn explanations [theme windows]
-  (let [{:keys [payload]} @(precept/subscribe [:explanations])]
+  (let [{:keys [payload]} @(precept/subscribe [:explanations])
+        sort-states :desc
+        sort-events :desc]
     (if (empty? payload)
       nil
       [:div {:style {:position "fixed"
@@ -212,7 +224,8 @@
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]
          [:div {:style {:width "100%" :display "flex" :flex-direction "column"}}
-          (for [x payload]
+          (for [x (->> payload (sort-by (comp (juxt :state-number :event-number) :event)
+                                        (by-state-events sort-states sort-events)))]
             [:div {:key (:fact-str x)
                    :style {:margin "15px 0px"}}
              [explanation x theme]])]

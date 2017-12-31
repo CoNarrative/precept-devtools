@@ -6,12 +6,12 @@
             [precept-visualizer.ws :as ws]))
 
 
-(rule on-clear-all-explanations
+(rule on-explain-request
   {:group :action}
-  [[:transient :clear-all-explanations true]]
-  [?explanations <- (acc/all) :from [_ :explaining/fact]]
+  [[:transient :explanation/request ?fact-str]]
+  [:not [_ :explaining/fact ?fact-str]]
   =>
-  (retract! ?explanations))
+  (insert-unconditional! [(util/guid) :explaining/fact ?fact-str]))
 
 
 ;; TODO. Not sure if we should pull all eids associated with the
@@ -24,12 +24,12 @@
   (retract! ?fact-exp))
 
 
-(rule on-explain-request
+(rule on-clear-all-explanations
   {:group :action}
-  [[:transient :explanation/request ?fact-str]]
-  [:not [_ :explaining/fact ?fact-str]]
+  [[:transient :clear-all-explanations true]]
+  [?explanations <- (acc/all) :from [_ :explaining/fact]]
   =>
-  (insert-unconditional! [(util/guid) :explaining/fact ?fact-str]))
+  (retract! ?explanations))
 
 
 (rule explain-fact-for-events-in-state
@@ -44,7 +44,7 @@
   [[?event-id :event/facts ?fact-id]]
   [[?fact-id :fact/string ?fact-str]]
   [[?event-id :event/number ?event-number]]
-  ;; when no explanation exists for a fact mentioned in event of current state
+  ;; when no log entry exists for a fact mentioned in event of current state
   [:not [?event-id :event/log-entry]]
 
   =>
@@ -66,15 +66,12 @@
   =>
   ;; Because this is already a data representation of an event there's not
   ;; much we can do to make it into an explanation here. View will format as needed
-  ;; Note: request-id isn't effectively used -- could make inserted fact one-to-many
-  ;; and get rid of it
   ;; We are performing this insertion so we can accumulate all explanations
   ;; in a subscription. Logically it's not necessary; we could just have this in the
   ;; sub if we had better matching and marshalling capability with lists
   ;; note :event/log-entry is a base fact, pulled from server on demand and
   ;; kept in memory. This duplicate of it should come and go based upon the
-  ;; presence of an explanation request, hence insertL here. :explanation
-  ;; implies "active"
+  ;; presence of an explanation request
   (insert! [?explanation-id :explanation/log-entry {:fact-str ?fact-str
                                                     :event ?log-entry}]))
 
