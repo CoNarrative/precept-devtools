@@ -18,36 +18,18 @@
 (defn rule-item [{:keys [name type source] :as rule}
                  {:keys [log-entry selected-event-index total-event-count] :as history}
                  theme]
-  (let [_ (println "rule item history" history)
-        has-prev? (> selected-event-index 0)
-        has-next? (> (dec total-event-count) selected-event-index)]
+  [:div
+   [:div {:style {:display "flex" :justify-content "flex-end"}}
     [:div
-     [:div {:style {:display "flex" :justify-content "flex-end"}}
-      [:div
-       {:on-click #(conseq/viewing-rule-history (str name) (not (boolean log-entry)))} ;; TODO. stringify before here
-       (if history "Hide history" "Show history")]
-      (when history
-        [:div
-         [:div {:style {:display "flex" :justify-content "space-between"}}
-          [:div
-           {:style {:cursor "pointer"
-                    :user-select "none"
-                    :color (if has-prev? (:text-color theme) (:disabled-text-color theme))}
-            :on-click #(when has-prev? (conseq/viewing-rule-history-event (str name) (dec selected-event-index)))}
-           "Prev"]
-          [:div
-           {:style {:cursor "pointer"
-                    :user-select "none"
-                    :color (if has-next? (:text-color theme) (:disabled-text-color theme))}
-            :on-click #(when has-next? (conseq/viewing-rule-history-event (str name) (inc selected-event-index)))}
-           "Next"]]])]
-     [:strong name]
-     [:div type]
-     [:pre (if (#{"rule" "subscription"} type)
-             (prettify-rule (str source))
-             (str source))]
-     (when log-entry
-       [explanations/explanation {:event log-entry} theme])]))
+     {:on-click #(conseq/viewing-rule-history (str name) (not (boolean log-entry)))} ;; TODO. stringify before here
+     (if history "Hide history" "Show history")]]
+   [:strong name]
+   [:div type]
+   [:pre (if (#{"rule" "subscription"} type)
+           (prettify-rule (str source))
+           (str source))]
+   (when log-entry
+     [explanations/rule-tracker name history theme])])
 
 
 (defn key-by [f coll]

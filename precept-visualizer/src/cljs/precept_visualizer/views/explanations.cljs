@@ -7,6 +7,18 @@
             [net.cgrand.packed-printer :as packed]))
 
 
+(defn by-state-events [state-direction event-direction]
+  (fn [& vals]
+    (let [c (cond-> (apply compare (map first vals))
+                    (= state-direction :desc) -
+                    true identity)]
+      (if (not= c 0)
+        c
+        (cond-> (apply compare (map second vals))
+                (= event-direction :desc) -
+                true identity)))))
+
+
 (defn close-explanation-button [fact-str]
   [:div {:style {:display "flex" :justify-content "flex-end"}}
    [:span {:style
@@ -24,7 +36,41 @@
      "x"]]])
 
 
-(defn explanation-action [{:keys [event fact-str]} theme]
+(defn event-coordinates-row [state-number event-number theme]
+  [:div {:style {:margin-bottom   "20px"
+                 :display         "flex"
+                 :justify-content "space-between"}}
+   [:span {:class "label black"}
+    (str "State " state-number)]
+   [:span {:class "label outline"
+           :style {:color (:text-color theme)}}
+    (str "Event " event-number)]])
+
+
+(defn schema-enforcement-explanation [caused-by-insert index-path conflict]
+  (if caused-by-insert
+    [:div (str "Caused by insert " (util/display-eav caused-by-insert)
+               " at index path " index-path)]
+    [:div
+     [:div {:class "label tag"}
+      (str "Replaced")]
+     [:pre (str (util/display-eav conflict))]
+
+     [:div
+      [:span {:class "label badge focus"}
+       (str "Enforced schema rules")]
+      [:br]
+
+      [:div {:class "label tag"}
+       "Attribute"]
+      [:pre (str (last index-path))]
+
+      [:div {:class "label tag"}
+       "Cardinality:"]
+      [:pre (str (first index-path))]]]))
+
+
+(defn action-explanation [{:keys [event fact-str]} theme]
   (let [{:keys [state-number event-number facts type]} event
         {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
         event
@@ -34,13 +80,7 @@
            :style {:display "flex"
                    :flex-direction "column"}}
      [close-explanation-button fact-str]
-     [:div {:style {:margin-bottom "20px"
-                    :display "flex"
-                    :justify-content "space-between"}}
-      [:div {:class "label black"}
-       (str "State " state-number)]
-      [:div {:class "label outline black"}
-       (str "Event " event-number)]]
+     [event-coordinates-row state-number event-number theme]
      [:div
       [:span {:class "label badge error"}
        (util/event-types->display type)]]
@@ -50,30 +90,9 @@
           (first (filter #{fact-edn} facts))
           {:trim-uuids? true :format fact-format}))]
      (when activated
-       (if caused-by-insert
-         [:div (str "Caused by insert " (util/display-eav caused-by-insert)
-                 " at index path " index-path)]
-         [:div
-          [:div {:class "label tag"}
-           (str "Replaced")]
-          [:pre (str (util/display-eav conflict))]
-
-          [:div
-           [:span {:class "label badge focus"}
-            (str "Enforced schema rules")]
-           [:br]
-
-           [:div {:class "label tag"}
-            "Attribute"]
-           [:pre (str (last index-path))]
-
-           [:div {:class "label tag"}
-            "Cardinality:"]
-           [:pre (str (first index-path))]]]))]))
+       [schema-enforcement-explanation caused-by-insert index-path conflict])]))
 
 
-;; TODO. We'd be better off if this were higher up the chain. At least put
-;; in event-parser ns
 (defn rule-type-from-name [name]
   (cond
     (clojure.string/includes? name "-sub___impl")
@@ -107,7 +126,8 @@
                     :padding-left 12}}
       (str (:name data))]]))
 
-(defn explain-subscription-consequence [consequence-op facts colors]
+
+(defn subscription-consequence-explanation [consequence-op facts colors]
   (let [sub-map (:v (first facts))]
     [:div
      [:span {:class "label badge error"}
@@ -123,11 +143,11 @@
       "}"]]))
 
 
-(defn explain-consequence [rule-name consequence-op facts colors]
+(defn consequence-explanation [rule-name consequence-op facts colors]
   (let [rule-data (rule-type-from-name rule-name)
         rule-type (:type rule-data)]
     (if (= rule-type :sub)
-      [explain-subscription-consequence consequence-op facts colors]
+      [subscription-consequence-explanation consequence-op facts colors]
       [:div
        [:span {:class "label badge error"}
         (util/event-types->display consequence-op)]
@@ -139,7 +159,31 @@
            colors])]])))
 
 
-(defn explanation-rule [{:keys [event fact-str] :as payload} theme]
+(defn conditions-row [eav-conditions colors theme]
+  [:div
+   [:span {:class "label tag"
+           :style {:color (:text-color theme)}}
+    "Conditions"]
+   [matching/pattern-highlight eav-conditions colors]])
+
+
+(defn matches-row [matches colors theme]
+  [:div
+   [:span {:class "label tag"
+           :style {:color (:text-color theme)}}
+    (if (> (count matches) 1) "Matches" "Match")]
+   [:pre
+    (for [match (->> matches
+                     (mapv first)
+                     (remove event-parser/has-attribute-of-ignored-fact?))]
+      [:span {:key (str match)}
+       [matching/pattern-highlight-fact
+        match
+        colors]
+       [:br]])]])
+
+
+(defn rule-explanation [{:keys [event fact-str] :as payload} theme]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
         eav-conditions (event-parser/lhs->eav-syntax lhs)
@@ -148,36 +192,12 @@
            :style {:display "flex"
                    :flex-direction "column"}}
      [close-explanation-button fact-str]
-     [:div {:style {:margin-bottom "20px"
-                    :display "flex"
-                    :justify-content "space-between"}}
-      [:span {:class "label black"}
-       (str "State " state-number)]
-      [:span {:class "label outline"
-              :style {:color (:text-color theme)}}
-       (str "Event " event-number)]]
-
+     [event-coordinates-row state-number event-number theme]
      [rule-name name theme]
      [:div
-      [:div
-       [:span {:class "label tag"
-               :style {:color (:text-color theme)}}
-        "Conditions"]
-       [matching/pattern-highlight eav-conditions colors]]
-      [:div
-       [:span {:class "label tag"
-               :style {:color (:text-color theme)}}
-        (if (> (count matches) 1) "Matches" "Match")]
-       [:pre
-        (for [match (->> matches
-                      (mapv first)
-                      (remove event-parser/has-attribute-of-ignored-fact?))]
-          [:span {:key (str match)}
-            [matching/pattern-highlight-fact
-             match
-             colors]
-           [:br]])]]
-      [explain-consequence name type facts colors]]]))
+      [conditions-row eav-conditions colors theme]
+      [matches-row matches colors theme]
+      [consequence-explanation name type facts colors]]]))
 
 
 (defn explanation [{:keys [event fact-str] :as payload} theme]
@@ -186,21 +206,38 @@
     nil
 
     (#{:add-facts :retract-facts} (:type event))
-    ^{:key (:fact-str payload)} [explanation-action payload theme]
+    ^{:key (:fact-str payload)} [action-explanation payload theme]
 
     :default
-    [explanation-rule payload theme]))
+    [rule-explanation payload theme]))
 
-(defn by-state-events [state-direction event-direction]
-  (fn [& vals]
-    (let [c (cond-> (apply compare (map first vals))
-                    (= state-direction :desc) -
-                    true identity)]
-      (if (not= c 0)
-        c
-        (cond-> (apply compare (map second vals))
-                (= event-direction :desc) -
-                true identity)))))
+
+(defn prev-next-rule-history-buttons [rule-name selected-event-index total-event-count theme]
+  (let [has-prev? (> selected-event-index 0)
+        has-next? (> (dec total-event-count) selected-event-index)]
+    [:div {:style {:display "flex" :justify-content "space-between"}}
+     [:div
+      {:style    {:cursor      "pointer"
+                  :user-select "none"
+                  :color       (if has-prev? (:text-color theme) (:disabled-text-color theme))}
+       :on-click #(when has-prev? (conseq/viewing-rule-history-event (str rule-name) (dec selected-event-index)))}
+      "<-"]
+     [:div
+      {:style    {:cursor      "pointer"
+                  :user-select "none"
+                  :color       (if has-next? (:text-color theme) (:disabled-text-color theme))}
+       :on-click #(when has-next? (conseq/viewing-rule-history-event (str rule-name) (inc selected-event-index)))}
+      "->"]]))
+
+
+(defn rule-tracker [rule-name
+                    {:keys [log-entry selected-event-index total-event-count] :as history}
+                    theme]
+ [:div
+  [prev-next-rule-history-buttons rule-name selected-event-index total-event-count theme]
+  (when log-entry
+    [rule-explanation {:event log-entry} theme])])
+
 
 (defn explanations [theme windows]
   (let [{:keys [payload]} @(precept/subscribe [:explanations])
