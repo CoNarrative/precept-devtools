@@ -24,7 +24,7 @@
        [:h4 "Rules"]
        [rule-list/rule-list rules theme]
        [state-tree/main store theme]]
-      [explanations/explanations theme windows]]]))
+      [explanations/fact-list theme windows]]]))
 
 ;;TODO. Make a test for converting these to :db/id maps
 (comment

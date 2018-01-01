@@ -12,6 +12,22 @@
             [precept-visualizer.other-rules]
             [precept-visualizer.ws :as ws]))
 
+(defn sort-fact-tracker-occurrences [history-event-entities]
+  (-> history-event-entities
+      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
+      (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
+      (->> (reduce concat))
+      (->> (sort
+             (fn [a b] (if (> (:fact-tracker.occurrence/state-number a)
+                              (:fact-tracker.occurrence/state-number b))
+                         1
+                         (if (not= (:fact-tracker.occurrence/state-number a)
+                                   (:fact-tracker.occurrence/state-number b))
+                           -1
+                           (if (> (:fact-tracker.occurrence/event-number a)
+                                  (:fact-tracker.occurrence/event-number b))
+                             1
+                             -1))))))))
 
 ;; FIXME. Duplicate definition in rules.rule-tracking
 ;; When the session is defined in another namespace, rules in this ns that use this fn

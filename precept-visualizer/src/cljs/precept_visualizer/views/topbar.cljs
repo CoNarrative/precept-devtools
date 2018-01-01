@@ -114,8 +114,7 @@
 
 
 (defn menu-header [menu-data settings theme]
-  (let [local-db (r/atom (merge @settings @theme {:open-menus []}))
-        _ (println "menu header theme" @theme)]
+  (let [local-db (r/atom (merge @settings @theme {:open-menus []}))]
     [:div {:style {:display "flex"
                    :height 24
                    :vertical-align "middle"

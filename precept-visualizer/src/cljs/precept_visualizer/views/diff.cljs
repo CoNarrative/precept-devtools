@@ -11,8 +11,8 @@
 (defn fact
   "Returns markup for a fact. Triggers an explanation of the fact instance via
   the e a v t fact string on click."
-  [fact-edn fact-str]
-  [:div {:on-click #(conseq/fact-explanation-requested fact-str)}
+  [fact-edn fact-str fact-edn-map]
+  [:div {:on-click #(conseq/fact-explanation-requested fact-edn-map)}
    [:pre {:style {:cursor "pointer"}}
      (matching/format-edn-str fact-edn)]])
 
@@ -23,21 +23,23 @@
 
 (defn diff-view [theme schemas]
   (let [{:state/keys [added removed]} @(precept/subscribe [:diff-view])
+        added-edn-maps (->> added (mapv cljs.reader/read-string))
+        removed-edn-maps (->> removed (mapv cljs.reader/read-string))
         fact-format (:fact-format @(precept/subscribe [:settings]))
         edn-format-options {:trim-uuids? true :format fact-format}
-        added-edn (op-strs->edn added edn-format-options)
-        removed-edn (op-strs->edn removed edn-format-options)]
+        added-edn (mapv #(event-parser/prettify-all-facts % edn-format-options) added-edn-maps)
+        removed-edn (mapv #(event-parser/prettify-all-facts % edn-format-options) removed-edn-maps)]
     [:div
      [:h3 {:style {:color (:text-color theme)}}
       "Added"]
      (if (empty? added)
        [:div "None"]
-       (for [[fact-str fact-edn] (map vector added added-edn)]
-         ^{:key fact-str} [fact fact-edn fact-str]))
+       (for [[fact-str fact-edn fact-edn-map] (map vector added added-edn added-edn-maps)]
+         ^{:key fact-str} [fact fact-edn fact-str fact-edn-map]))
      [:h3 {:style {:color (:text-color theme)}}
       "Removed"]
      (if (empty? removed)
        [:div {:style {:color (:text-color theme)}}
         "None"]
-       (for [[fact-str fact-edn] (map vector removed removed-edn)]
-         ^{:key fact-str} [fact fact-edn fact-str]))]))
+       (for [[fact-str fact-edn fact-edn-map] (map vector removed removed-edn removed-edn-maps)]
+         ^{:key fact-str} [fact fact-edn fact-str fact-edn-map]))]))

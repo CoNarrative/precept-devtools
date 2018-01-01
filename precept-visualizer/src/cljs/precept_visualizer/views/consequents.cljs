@@ -9,8 +9,13 @@
 (defn tracking-state-synced? [bool]
   (then [:global :tracking/sync? bool]))
 
-(defn fact-explanation-requested [fact-str]
-  (then [:transient :explanation/request fact-str]))
+(defn fact-explanation-requested [fact-edn-map]
+  (let [{:keys [e a v t]} fact-edn-map]
+    (then
+      {:db/id :transient
+       :fact-tracker.request/fact-e (str e) ;; FIXME. all session fact/e, fact/a come as strs
+       :fact-tracker.request/fact-a (str a)
+       :fact-tracker.request/fact-t t})))
 
 (defn explanations-cleared []
   (then [:transient :clear-all-explanations true]))

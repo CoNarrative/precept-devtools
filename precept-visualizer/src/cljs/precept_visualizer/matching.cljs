@@ -149,8 +149,7 @@
 
 (defn pattern-highlight-fact [fact colors]
   (let [fact-format (:fact-format @(precept/subscribe [:settings]))
-        formatted (event-parser/prettify-all-facts fact {:trim-uuids? true :format fact-format})
-        _ (println "colors and fact" colors fact)]
+        formatted (event-parser/prettify-all-facts fact {:trim-uuids? true :format fact-format})]
     ;; If we have a color for the "whole fact" (i.e. result binding) go ahead and highlight it
     (if-let [color (get colors fact)]
       [:span {:style {:border-bottom (str "2px solid" color)

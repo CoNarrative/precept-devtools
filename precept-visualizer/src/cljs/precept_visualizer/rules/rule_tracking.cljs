@@ -78,7 +78,7 @@
 
 
 (rule sorted-rule-events-when-tracking-history
-  [[?rule-history :rule-history/rule-name ?rule-name]]
+  [[?rule-history :rule-history/rule-name ?rule-name]] ;; Do we need this?
   [[?rule-history :rule-history/event-ids ?rule-history-event]]
   [[?rule-history-event :rule-history.event/event-id ?event-id]]
   [(<- ?rule-history-event-meta (entity ?rule-history-event))]

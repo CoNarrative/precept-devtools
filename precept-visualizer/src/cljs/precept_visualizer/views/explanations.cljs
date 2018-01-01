@@ -72,8 +72,7 @@
 
 (defn action-explanation [{:keys [event fact-str]} theme]
   (let [{:keys [state-number event-number facts type]} event
-        {:keys [schema/activated schema/caused-by-insert schema/conflict schema/index-path]}
-        event
+        {:schema/keys [activated caused-by-insert conflict index-path]} event
         fact-edn (cljs.reader/read-string fact-str)
         fact-format (:fact-format @(precept/subscribe [:settings]))]
     [:div {:class "example"
@@ -212,7 +211,9 @@
     [rule-explanation payload theme]))
 
 
-(defn prev-next-rule-history-buttons [rule-name selected-event-index total-event-count theme]
+(defn prev-next-occurrence-buttons [rule-name selected-event-index total-event-count
+                                      {:keys [next-occurrence prev-occurrence] :as conseqs}
+                                      theme]
   (let [has-prev? (> selected-event-index 0)
         has-next? (> (dec total-event-count) selected-event-index)]
     [:div {:style {:display "flex" :justify-content "space-between"}}
@@ -220,13 +221,13 @@
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-prev? (:text-color theme) (:disabled-text-color theme))}
-       :on-click #(when has-prev? (conseq/viewing-rule-history-event (str rule-name) (dec selected-event-index)))}
+       :on-click #(when has-prev? (prev-occurrence))}
       "<-"]
      [:div
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-next? (:text-color theme) (:disabled-text-color theme))}
-       :on-click #(when has-next? (conseq/viewing-rule-history-event (str rule-name) (inc selected-event-index)))}
+       :on-click #(when has-next? (next-occurrence))}
       "->"]]))
 
 
@@ -234,13 +235,18 @@
                     {:keys [log-entry selected-event-index total-event-count] :as history}
                     theme]
  [:div
-  [prev-next-rule-history-buttons rule-name selected-event-index total-event-count theme]
+  [prev-next-occurrence-buttons
+   rule-name selected-event-index total-event-count
+   {:next-occurrence #(conseq/viewing-rule-history-event (str rule-name) (inc selected-event-index))
+    :prev-occurrence #(conseq/viewing-rule-history-event (str rule-name) (dec selected-event-index))}
+   theme]
   (when log-entry
     [rule-explanation {:event log-entry} theme])])
 
 
-(defn explanations [theme windows]
+(defn fact-list [theme windows]
   (let [{:keys [payload]} @(precept/subscribe [:explanations])
+        _ (println "Fact trackers" @(precept/subscribe [:fact-trackers]))
         sort-states :desc
         sort-events :desc]
     (if (empty? payload)
