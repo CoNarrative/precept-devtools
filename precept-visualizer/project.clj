@@ -8,7 +8,7 @@
                  [com.taoensso/sente "1.11.0"]
                  [org.clojure/clojure "1.9.0-alpha17"]
                  [org.clojure/spec.alpha "0.1.109"]
-                 [binaryage/devtools "0.8.2"]
+                 [binaryage/devtools "0.9.6"]
                  [org.clojure/clojurescript "1.9.671"]
                  [org.clojure/core.async "0.3.442"]
                  [mount "0.1.11"]

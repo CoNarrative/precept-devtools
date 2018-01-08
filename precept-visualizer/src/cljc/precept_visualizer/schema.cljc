@@ -154,6 +154,8 @@
       :db.type/hash-map
       :db/unique :db.unique/identity)
 
+
+   ;; Rule history
     (attribute :rule-history/event-meta
       :db.type/hash-map
       :db/cardinality :db.cardinality/many)
@@ -162,16 +164,13 @@
       :db.type/ref
       :db/cardinality :db.cardinality/many)
 
+
+   ;; Fact tracker
     (attribute :fact-tracker/viewer-ids
       :db.type/ref
       :db/cardinality :db.cardinality/many)
 
     (attribute :fact-tracker/occurrence-ids
-      :db.type/ref
-      :db/cardinality :db.cardinality/many)
-
-
-    (attribute :fact-tracker.viewer/first-event-candidate-ids
       :db.type/ref
       :db/cardinality :db.cardinality/many)
 
@@ -181,6 +180,10 @@
 
     (attribute :fact-tracker/viewer-subs
       :db.type/vector
+      :db/cardinality :db.cardinality/many)
+
+    (attribute :fact-tracker.clear-request/tracker-id
+      :db.type/ref
       :db/cardinality :db.cardinality/many)
 
     (attribute :schemas/one-to-many

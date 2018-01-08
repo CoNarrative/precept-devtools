@@ -19,21 +19,18 @@
                 true identity)))))
 
 
-(defn close-explanation-button [fact-str]
+(defn close-button [{:keys [label on-click]}]
   [:div {:style {:display "flex" :justify-content "flex-end"}}
-   [:span {:style
-                     {:width 20
-                      :height 20
-                      :position "relative"
-                      :top -24
-                      :right -24
-                      :background "white"
-                      :borderRadius "100%"
-                      :cursor "pointer"
-                      :display "flex" :justify-content "center" :align-items "center"}
-           :on-click #(conseq/stop-explain-fact-requested fact-str)}
+   [:span {:style    {:background      "white"
+                      :borderRadius    "4px"
+                      :padding         4
+                      :cursor          "pointer"
+                      :display         "flex"
+                      :justify-content "center"
+                      :align-items     "center"}
+           :on-click on-click}
     [:span {:style {:color "red"}}
-     "x"]]])
+     (or label "x")]]])
 
 
 (defn event-coordinates-row [state-number event-number theme]
@@ -70,15 +67,13 @@
       [:pre (str (first index-path))]]]))
 
 
-(defn action-explanation [{:keys [event fact-str]} theme]
+(defn action-explanation [{:keys [event theme]}]
   (let [{:keys [state-number event-number facts type]} event
         {:schema/keys [activated caused-by-insert conflict index-path]} event
-        fact-edn (cljs.reader/read-string fact-str)
         fact-format (:fact-format @(precept/subscribe [:settings]))]
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
-     [close-explanation-button fact-str]
      [event-coordinates-row state-number event-number theme]
      [:div
       [:span {:class "label badge error"}
@@ -86,7 +81,7 @@
      [:pre {:style {:background (:pre-background-color theme)}}
       (matching/format-edn-str
         (event-parser/prettify-all-facts
-          (first (filter #{fact-edn} facts))
+          (first facts)
           {:trim-uuids? true :format fact-format}))]
      (when activated
        [schema-enforcement-explanation caused-by-insert index-path conflict])]))
@@ -182,7 +177,7 @@
        [:br]])]])
 
 
-(defn rule-explanation [{:keys [event fact-str] :as payload} theme]
+(defn rule-explanation [{:keys [event theme]}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
         eav-conditions (event-parser/lhs->eav-syntax lhs)
@@ -190,7 +185,6 @@
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
-     [close-explanation-button fact-str]
      [event-coordinates-row state-number event-number theme]
      [rule-name name theme]
      [:div
@@ -199,36 +193,39 @@
       [consequence-explanation name type facts colors]]]))
 
 
-(defn explanation [{:keys [event fact-str] :as payload} theme]
+(defn explanation [{:keys [event theme]}]
   (cond
     (nil? event)
     nil
 
     (#{:add-facts :retract-facts} (:type event))
-    ^{:key (:fact-str payload)} [action-explanation payload theme]
+    ^{:key (:db/id event)} [action-explanation {:event event
+                                                :theme theme}]
 
     :default
-    [rule-explanation payload theme]))
+    ^{:key (:db/id event)} [rule-explanation {:event event
+                                              :theme theme}]))
 
 
-(defn prev-next-occurrence-buttons [rule-name selected-event-index total-event-count
-                                      {:keys [next-occurrence prev-occurrence] :as conseqs}
-                                      theme]
-  (let [has-prev? (> selected-event-index 0)
-        has-next? (> (dec total-event-count) selected-event-index)]
+(defn prev-next-occurrence-buttons [selected-occurrence-index total-event-count
+                                    {:keys [next-occurrence prev-occurrence] :as conseqs}
+                                    theme]
+  (let [has-prev? (> selected-occurrence-index 0)
+        has-next? (> (dec total-event-count) selected-occurrence-index)]
     [:div {:style {:display "flex" :justify-content "space-between"}}
      [:div
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-prev? (:text-color theme) (:disabled-text-color theme))}
        :on-click #(when has-prev? (prev-occurrence))}
-      "<-"]
+      "<--"]
+     [:div (str (inc selected-occurrence-index) " of " total-event-count)]
      [:div
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-next? (:text-color theme) (:disabled-text-color theme))}
        :on-click #(when has-next? (next-occurrence))}
-      "->"]]))
+      "-->"]]))
 
 
 (defn rule-tracker [rule-name
@@ -236,7 +233,7 @@
                     theme]
  [:div
   [prev-next-occurrence-buttons
-   rule-name selected-event-index total-event-count
+   selected-event-index total-event-count
    {:next-occurrence #(conseq/viewing-rule-history-event (str rule-name) (inc selected-event-index))
     :prev-occurrence #(conseq/viewing-rule-history-event (str rule-name) (dec selected-event-index))}
    theme]
@@ -244,12 +241,41 @@
     [rule-explanation {:event log-entry} theme])])
 
 
+(defn fact-viewer [{:keys [viewer-id selected-log-entry selected-occurrence-index total-event-count theme]}]
+  (let [has-prev? (> selected-occurrence-index 0)
+        has-next? (> (dec total-event-count) selected-occurrence-index)]
+    [:div
+     [close-button {:label "Remove viewer"
+                    :on-click #(conseq/viewer-cleared viewer-id)}]
+     [prev-next-occurrence-buttons
+      selected-occurrence-index total-event-count
+      {:next-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (inc selected-occurrence-index))
+       :prev-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (dec selected-occurrence-index))}]
+     [explanation {:event selected-log-entry :theme theme}]]))
+
+
+(defn fact-tracker [{:keys [tracker-id fact-e fact-a viewers total-event-count theme]}]
+  [:div
+   [:div "Tracker"]
+   [:div (clojure.string/join (interpose " " ["[" fact-e fact-a "]"]))]
+   [close-button {:label "Remove tracker"
+                  :on-click #(conseq/tracker-cleared tracker-id)}]
+   (for [viewer (sort-by :fact-tracker.viewer/fact-t (map first viewers))] ;;TODO. Why first?
+     (let [{:fact-tracker.viewer/keys [selected-occurrence-index selected-log-entry]
+            :as                       viewer-args} viewer
+           viewer-id (:db/id viewer-args)]
+       [:div {:key   viewer-id
+              :style {:margin "15px 0px"}}
+        [fact-viewer {:viewer-id                 viewer-id
+                      :selected-log-entry        selected-log-entry
+                      :selected-occurrence-index selected-occurrence-index
+                      :total-event-count         total-event-count
+                      :theme                     theme}]]))])
+
+
 (defn fact-list [theme windows]
-  (let [{:keys [payload]} @(precept/subscribe [:explanations])
-        _ (println "Fact trackers" @(precept/subscribe [:fact-trackers]))
-        sort-states :desc
-        sort-events :desc]
-    (if (empty? payload)
+  (let [trackers (:subs @(precept/subscribe [:fact-trackers]))]
+    (if (empty? trackers)
       nil
       [:div {:style {:position "fixed"
                      :overflow-y "scroll"
@@ -261,15 +287,19 @@
        [:div {:style {:display "flex" :flex-direction "column"}}
         [:div {:style {:display "flex"}}
           [:button {:style {:background (:primary theme)}
-                    :on-click #(conseq/explanations-cleared)}
+                    :on-click #(doseq [tracker-id (map :db/id trackers)]
+                                 (conseq/tracker-cleared tracker-id))}
            "Clear all"]]
         [:div {:style {:height "25px"}}]
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]
          [:div {:style {:width "100%" :display "flex" :flex-direction "column"}}
-          (for [x (->> payload (sort-by (comp (juxt :state-number :event-number) :event)
-                                        (by-state-events sort-states sort-events)))]
-            [:div {:key (:fact-str x)
-                   :style {:margin "15px 0px"}}
-             [explanation x theme]])]
+          (for [tracker trackers]
+            (let [{:fact-tracker/keys [fact-e fact-a viewer-subs total-event-count]} tracker]
+              ^{:key (:db/id tracker)} [fact-tracker {:tracker-id (:db/id tracker)
+                                                      :fact-e fact-e
+                                                      :fact-a fact-a
+                                                      :viewers viewer-subs
+                                                      :total-event-count total-event-count
+                                                      :theme theme}]))]
          [:div {:style {:min-width "15px"}}]]]])))

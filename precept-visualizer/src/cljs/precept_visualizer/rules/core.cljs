@@ -76,10 +76,10 @@
 (define [:global :max-state-number ?n] :- [?n <- (acc/max :v) :from [_ :state/number]])
 
 
-(define [:windows :explanations/width-percent 0] :- [:not [_ :explaining/fact]])
+(define [:windows :explanations/width-percent 0] :- [:not [_ :fact-tracker/fact-e]])
 
 
-(define [:windows :explanations/width-percent 50] :- [:exists [_ :explaining/fact]])
+(define [:windows :explanations/width-percent 50] :- [:exists [_ :fact-tracker/fact-e]])
 
 
 (define [:windows :main/width-percent (- 100 ?explanation-width)]
