@@ -1,4 +1,4 @@
-(defproject precept-visualizer "0.0.0"
+(defproject precept-visualizer "0.1.0"
   :description "Precept visualizer"
   :url          "https://github.com/CoNarrative/precept.git"
   :license      {:name "MIT"
@@ -13,7 +13,7 @@
                  [org.clojure/core.async "0.3.442"]
                  [mount "0.1.11"]
                  [net.cgrand/packed-printer "0.2.1"]
-                 [precept "0.4.0-alpha"]
+                 [precept "0.5.0-alpha"]
                  [reagent "0.6.0"]]
 
   :plugins [[lein-cljsbuild "1.1.4"]]

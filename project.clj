@@ -1,4 +1,4 @@
-(defproject precept-devtools "0.0.0"
+(defproject precept-devtools "0.1.0"
   :description "precept-devtools"
   :url          "https://github.com/CoNarrative/precept.git"
   :license      {:name "MIT"
@@ -15,7 +15,7 @@
                  [metosin/compojure-api "1.1.10" :exclusions [prismatic/schema]]
                  [metosin/ring-http-response "0.8.1"]
                  [mount "0.1.11"]
-                 [precept "0.4.0-alpha"]
+                 [precept "0.5.0-alpha"]
                  [prismatic/schema "1.1.6"]
                  [org.clojure/clojure "1.9.0-alpha17"]
                  [org.clojure/clojurescript "1.9.671"]
