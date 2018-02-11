@@ -74,10 +74,8 @@
     facts))
 
 (defn prettify-all-map [facts {:keys [trim-uuids? one-to-many] :as options}]
-  (when (not (set? one-to-many))) (ex-info
-                                   "prettify-all-facts with :map option
-                                   requires :one-to-many option to be a set"
-                                   {})
+  (when (not (set? one-to-many))
+    (ex-info "prettify-all-facts with :map option requires :one-to-many option to be a set" {}))
   (ast->datomic-maps facts one-to-many {:trim-uuids? true}))
 
 ;; TODO. Would this be better as a multimethod? Seems like it would reduce

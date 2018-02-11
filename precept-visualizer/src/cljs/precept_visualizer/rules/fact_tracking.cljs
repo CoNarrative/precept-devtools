@@ -42,6 +42,7 @@
   (retract! ?tracker))
 
 (rule on-clear-viewer-request
+  {:group :action}
   [[:transient :fact-tracker.viewer.clear-request/viewer-id ?viewer-id]]
   [?viewer-join <- [_ :fact-tracker/viewer-ids ?viewer-id]]
   [(<- ?viewer (entity ?viewer-id))]
@@ -59,6 +60,7 @@
   (insert-unconditional! [:transient :fact-tracker.request/hash (str ?e ?a)]))
 
 (rule on-track-fact-request-when-no-tracker-for-fact-identity-2
+  {:group :action}
   [[:transient :fact-tracker.request/hash ?hash]]
   [[:transient :fact-tracker.request/fact-e ?e]]
   [[:transient :fact-tracker.request/fact-a ?a]]

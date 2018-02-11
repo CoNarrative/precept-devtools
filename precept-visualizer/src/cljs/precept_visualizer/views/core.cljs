@@ -4,7 +4,9 @@
             [precept-visualizer.views.diff :as diff]
             [precept-visualizer.views.explanations :as explanations]
             [precept-visualizer.views.rule-list :as rule-list]
-            [precept-visualizer.views.state-tree :as state-tree]))
+            [precept-visualizer.views.state-tree :as state-tree]
+            [precept-visualizer.views.subscriptions :as subs]
+            [precept-visualizer.views.actions :as actions]))
 
 
 (defn main [{:keys [rules store]}]
@@ -20,6 +22,8 @@
       [:div {:style {:display "flex"
                      :flex-direction "column"
                      :width (str (or (:main/width-percent windows) "100") "vw")}}
+       [actions/actions-list]
+       [subs/subscriptions-list store]
        [diff/diff-view theme schemas]
        [:h4 "Rules"]
        [rule-list/rule-list rules theme]

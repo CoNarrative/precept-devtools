@@ -36,6 +36,15 @@
    ;  :db/isComponent true
    ;  :db/cardinality :db.cardinality/many)
 
+   ;; Action
+   (attribute :action/fact-id
+     :db.type/ref
+     :db/cardinality :db.cardinality/many)
+
+   (attribute :action/fact-string
+     :db.type/string
+     :db/cardinality :db.cardinality/many)
+
    ;; Event
    (attribute :event/type
      :db.type/keyword)

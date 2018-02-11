@@ -132,7 +132,10 @@
         (fn [[k v]]
           [:span {:key (str k v)}
            (str k " ")
-           [matching/pattern-highlight-fact v colors]])
+           ;; Subscriptions may have scalar values
+           (if (coll? v)
+             [matching/pattern-highlight-fact v colors]
+             (str v))])
         sub-map)
       "}"]]))
 

@@ -1,6 +1,7 @@
 (ns precept-visualizer.rules.core
   (:require-macros [precept.dsl :refer [<- entity entities]])
   (:require [precept.rules :refer [rule define session defsub]]
+            [precept.spec.sub :as sub]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
             [precept.accumulators :as acc]
             [precept-visualizer.themes :as themes]
@@ -111,6 +112,31 @@
    :tracking/state-number ?n
    :max-state-number ?max})
 
+
+(rule derive-action-fact-ids
+  [[?state-id :state/number ?state-number]]
+  [[?state-id :state/events ?event-id]]
+  [[?event-id :event/action true]]
+  [?action-fact-ids <- (acc/all :v) :from [?event-id :event/facts]]
+  ;[(<- ?action-facts (entities ?action-fact-ids))]
+  =>
+  (let [action-id (util/guid)]
+    (insert! [action-id :action/state-number ?state-number])
+    (doseq [fact-id ?action-fact-ids]
+      (insert! [action-id :action/fact-id fact-id]))))
+
+(rule derive-action-facts
+  [[?action-id :action/fact-id ?fact-id]]
+  [[?fact-id :fact/string ?fact-str]]
+  =>
+  (insert! [?action-id :action/fact-string ?fact-str]))
+
+(defsub :actions
+  [[_ :tracking/state-number ?n]]
+  [[?action-id :action/state-number ?n]]
+  [?action-fact-strs <- (acc/all :v) :from [?action-id :action/fact-string]]
+  =>
+  {:results (mapv cljs.reader/read-string ?action-fact-strs)})
 
 (defsub :diff-view
   [[:global :view/mode :diff]]
