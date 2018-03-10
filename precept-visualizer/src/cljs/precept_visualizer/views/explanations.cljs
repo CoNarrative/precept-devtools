@@ -125,7 +125,7 @@
   (let [sub-map (:v (first facts))]
     [:div
      [:span {:class "label badge error"}
-      (str "Subscription result / " (util/event-types->display consequence-op))]
+      (util/event-types->display consequence-op)]
      [:pre
       "{"
       (map
