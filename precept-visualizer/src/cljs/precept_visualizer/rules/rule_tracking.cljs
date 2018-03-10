@@ -3,16 +3,14 @@
   (:require [precept.rules :refer [rule define session defsub]]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
             [precept-visualizer.event-parser :as event-parser]
+            [precept-visualizer.util :as vis-util]
             [precept.accumulators :as acc]
             [precept-visualizer.ws :as ws]))
 
 
-;; FIXME. When the session is defined in another namespace, rules in this ns that use this fn
-;; don't get its definition. Hoping this is fixed by https://github.com/cerner/clara-rules/issues/359,
-;; https://github.com/CoNarrative/precept/issues/111
 (defn sort-rule-history-tracker-events [history-event-entities]
   (-> history-event-entities
-      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
+      (->> (clojure.walk/postwalk vis-util/coerce-record-to-map))
       (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
       (->> (reduce concat))
       (->> (sort

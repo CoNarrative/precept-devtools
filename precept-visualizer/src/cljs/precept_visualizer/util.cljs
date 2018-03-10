@@ -4,6 +4,7 @@
 
 (defn display-eav [m] ((juxt :e :a :v) m))
 
+(defn coerce-record-to-map [x] (if (record? x) (into {} x) x))
 
 (def event-types->display
   {:add-facts "Insert unconditional"

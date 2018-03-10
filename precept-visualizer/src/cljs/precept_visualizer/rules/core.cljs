@@ -13,44 +13,6 @@
             [precept-visualizer.other-rules]
             [precept-visualizer.ws :as ws]))
 
-(defn sort-fact-tracker-occurrences [history-event-entities]
-  (-> history-event-entities
-      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
-      (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
-      (->> (reduce concat))
-      (->> (sort
-             (fn [a b] (if (> (:fact-tracker.occurrence/state-number a)
-                              (:fact-tracker.occurrence/state-number b))
-                         1
-                         (if (not= (:fact-tracker.occurrence/state-number a)
-                                   (:fact-tracker.occurrence/state-number b))
-                           -1
-                           (if (> (:fact-tracker.occurrence/event-number a)
-                                  (:fact-tracker.occurrence/event-number b))
-                             1
-                             -1))))))))
-
-;; FIXME. Duplicate definition in rules.rule-tracking
-;; When the session is defined in another namespace, rules in this ns that use this fn
-;; don't get its definition. Hoping this is fixed by https://github.com/cerner/clara-rules/issues/359,
-;; https://github.com/CoNarrative/precept/issues/111
-(defn sort-rule-history-tracker-events [history-event-entities]
-  (-> history-event-entities
-      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
-      (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
-      (->> (reduce concat))
-      (->> (sort
-             (fn [a b] (if (> (:rule-history.event/state-number a)
-                              (:rule-history.event/state-number b))
-                         1
-                         (if (not= (:rule-history.event/state-number a)
-                                   (:rule-history.event/state-number b))
-                           -1
-                           (if (> (:rule-history.event/event-number a)
-                                  (:rule-history.event/event-number b))
-                             1
-                             -1))))))))
-
 
 (rule initial-facts
   {:group :action}

@@ -2,15 +2,15 @@
   (:require-macros [precept.dsl :refer [<- entity entities]])
   (:require [precept.rules :refer [rule define session defsub]]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
+            [precept-visualizer.util :as vis-util]
             [precept.accumulators :as acc]
             [precept-visualizer.ws :as ws]
             [precept-visualizer.event-parser :as event-parser]))
 
 
-;; See if can declare and have def in rules.core
 (defn sort-fact-tracker-occurrences [history-event-entities]
   (-> history-event-entities
-      (->> (clojure.walk/postwalk (fn [x] (if (record? x) (into {} x) x))))
+      (->> (clojure.walk/postwalk vis-util/coerce-record-to-map))
       (event-parser/ast->datomic-maps #{} {:trim-uuids? false})
       (->> (reduce concat))
       (->> (sort
