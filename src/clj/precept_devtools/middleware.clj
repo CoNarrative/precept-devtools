@@ -3,6 +3,7 @@
             [clojure.tools.logging :as log]
             [ring.middleware.format :refer [wrap-restful-format]]
             [precept-devtools.config :refer [env]]
+            [ring.middleware.cors :refer [wrap-cors]]
             [ring.middleware.defaults :refer [site-defaults wrap-defaults]]))
 
 (defn wrap-internal-error [handler]
@@ -23,6 +24,7 @@
 
 (defn wrap-base [handler]
   (-> ((:middleware defaults) handler)
+      (wrap-cors identity)
       (wrap-defaults (assoc-in site-defaults [:security :anti-forgery] false))
       wrap-internal-error))
 

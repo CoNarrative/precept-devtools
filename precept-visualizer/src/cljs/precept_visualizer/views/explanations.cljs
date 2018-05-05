@@ -4,7 +4,9 @@
             [precept-visualizer.event-parser :as event-parser]
             [precept-visualizer.matching :as matching]
             [precept-visualizer.views.consequents :as conseq]
-            [net.cgrand.packed-printer :as packed]))
+            [net.cgrand.packed-printer :as packed]
+            [clojure.string :as str]
+            [precept-visualizer.icons :as icons]))
 
 
 (defn by-state-events [state-direction event-direction]
@@ -67,18 +69,19 @@
       [:pre (str (first index-path))]]]))
 
 
-(defn action-explanation [{:keys [event theme]}]
+(defn action-explanation [{:keys [event theme show-coordinates?]}]
   (let [{:keys [state-number event-number facts type]} event
         {:schema/keys [activated caused-by-insert conflict index-path]} event
         fact-format (:fact-format @(precept/subscribe [:settings]))]
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
-     [event-coordinates-row state-number event-number theme]
+     (when show-coordinates?
+       [event-coordinates-row state-number event-number theme])
      [:div
       [:span {:class "label badge error"}
        (util/event-types->display type)]]
-     [:pre {:style {:background (:pre-background-color theme)}}
+     [:pre
       (matching/format-edn-str
         (event-parser/prettify-all-facts
           (first facts)
@@ -89,14 +92,14 @@
 
 (defn rule-type-from-name [name]
   (cond
-    (clojure.string/includes? name "-sub___impl")
-    (let [clean-name (clojure.string/replace name "-sub___impl" "")]
+    (str/includes? name "-sub___impl")
+    (let [clean-name (str/replace name "-sub___impl" "")]
       {:name clean-name
        :type :sub
        :label "Subscription"
        :class-names ["focus"]})
 
-    (clojure.string/includes? name "define-")
+    (str/includes? name "define-")
     {:name name
      :type :define
      :label "Define"
@@ -112,12 +115,13 @@
 (defn rule-name [name theme]
   (let [data (rule-type-from-name name)]
     [:div {:style {:margin-bottom "20px"}}
-     [:span {:class (clojure.string/join " "
+     [:span {:class (str/join " "
                       (into ["label"]
                         (conj (:class-names data) "outline")))}
       (:label data)]
-     [:kbd {:style {:color (:text-color theme)
-                    :padding-left 12}}
+     [:span {:style {:color (:text-color theme)
+                    :padding-left 12
+                     :vertical-align "middle"}}
       (str (:name data))]]))
 
 
@@ -180,7 +184,7 @@
        [:br]])]])
 
 
-(defn rule-explanation [{:keys [event theme]}]
+(defn rule-explanation [{:keys [event theme show-coordinates?]}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
                 facts props ns-name]} event
         eav-conditions (event-parser/lhs->eav-syntax lhs)
@@ -188,7 +192,8 @@
     [:div {:class "example"
            :style {:display "flex"
                    :flex-direction "column"}}
-     [event-coordinates-row state-number event-number theme]
+     (when show-coordinates?
+       [event-coordinates-row state-number event-number theme])
      [rule-name name theme]
      [:div
       [conditions-row eav-conditions colors theme]
@@ -196,18 +201,19 @@
       [consequence-explanation name type facts colors]]]))
 
 
-(defn explanation [{:keys [event theme]}]
-  (cond
-    (nil? event)
-    nil
+(defn explanation [{:keys [event theme show-coordinates?]
+                    :or {show-coordinates? true}
+                    :as args}]
+  (let [props (merge args {:show-coordinates? show-coordinates?})]
+    (cond
+      (nil? event)
+      nil
 
-    (#{:add-facts :retract-facts} (:type event))
-    ^{:key (:db/id event)} [action-explanation {:event event
-                                                :theme theme}]
+      (#{:add-facts :retract-facts} (:type event))
+      ^{:key (:id event)} [action-explanation props]
 
-    :default
-    ^{:key (:db/id event)} [rule-explanation {:event event
-                                              :theme theme}]))
+      :default
+      ^{:key (:id event)} [rule-explanation props])))
 
 
 (defn prev-next-occurrence-buttons [selected-occurrence-index total-event-count
@@ -215,20 +221,20 @@
                                     theme]
   (let [has-prev? (> selected-occurrence-index 0)
         has-next? (> (dec total-event-count) selected-occurrence-index)]
-    [:div {:style {:display "flex" :justify-content "space-between"}}
+    [:div {:style {:display "flex" :justify-content "space-between" :margin "12px 0px"}}
      [:div
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-prev? (:text-color theme) (:disabled-text-color theme))}
        :on-click #(when has-prev? (prev-occurrence))}
-      "<--"]
+      [icons/left-arrow]]
      [:div (str (inc selected-occurrence-index) " of " total-event-count)]
      [:div
       {:style    {:cursor      "pointer"
                   :user-select "none"
                   :color       (if has-next? (:text-color theme) (:disabled-text-color theme))}
        :on-click #(when has-next? (next-occurrence))}
-      "-->"]]))
+      [icons/right-arrow]]]))
 
 
 (defn rule-tracker [rule-name
@@ -245,22 +251,27 @@
 
 
 (defn fact-viewer [{:keys [viewer-id selected-log-entry selected-occurrence-index total-event-count theme]}]
-  (let [has-prev? (> selected-occurrence-index 0)
-        has-next? (> (dec total-event-count) selected-occurrence-index)]
-    [:div
-     [close-button {:label "Remove viewer"
-                    :on-click #(conseq/viewer-cleared viewer-id)}]
-     [prev-next-occurrence-buttons
-      selected-occurrence-index total-event-count
-      {:next-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (inc selected-occurrence-index))
-       :prev-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (dec selected-occurrence-index))}]
-     [explanation {:event selected-log-entry :theme theme}]]))
+  [:div
+   [close-button {:label    "Remove viewer"
+                  :on-click #(conseq/viewer-cleared viewer-id)}]
+   [prev-next-occurrence-buttons
+    selected-occurrence-index total-event-count
+    {:next-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (inc selected-occurrence-index))
+     :prev-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (dec selected-occurrence-index))}]
+   [explanation {:event selected-log-entry :theme theme}]])
 
 
 (defn fact-tracker [{:keys [tracker-id fact-e fact-a viewers total-event-count theme]}]
   [:div
-   [:div "Tracker"]
-   [:div (clojure.string/join (interpose " " ["[" fact-e fact-a "]"]))]
+   [:div {:style {:display "flex"
+                  :align-items "center"
+                  :justify-content "center"}}
+    [:div
+     "["
+     [:span (str fact-e " ")]
+     [:strong {:style {:color "#805b95"}}
+      fact-a]]
+    "]"]
    [close-button {:label "Remove tracker"
                   :on-click #(conseq/tracker-cleared tracker-id)}]
    (for [viewer (sort-by :fact-tracker.viewer/fact-t (map first viewers))] ;;TODO. Why first?

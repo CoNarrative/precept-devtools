@@ -202,6 +202,28 @@
   =>
   (insert! [(util/guid) :fact-tracker/sub ?fact-tracker-sub]))
 
+(rule tracked-e-as
+  {:group :report}
+  [[?fact-tracker :fact-tracker/fact-e ?e]]
+  [[?fact-tracker :fact-tracker/fact-a ?a]]
+  =>
+  (insert! [(util/guid) :fact-tracker.sub/tracked-e-a [?e (cljs.reader/read-string ?a)]]))
+
+(defsub :fact-tracker-status
+  [?entries <- (acc/all :v) :from [_ :fact-tracker.viewer/selected-log-entry]]
+  =>
+  (let [{:keys [eas ts]} (->> ?entries
+                              (mapcat :facts)
+                              (reduce (fn [acc {:keys [e a _ t]}]
+                                        (-> acc
+                                            (update :eas conj [e a])
+                                            (update :ts conj t)))
+                                      {:eas #{}
+                                       :ts  #{}}))]
+    {:tracked-e-as    eas
+     :viewing-fact-ts ts}))
+
+
 (defsub :fact-trackers
   [?subs <- (acc/all :v) :from [_ :fact-tracker/sub]]
   =>

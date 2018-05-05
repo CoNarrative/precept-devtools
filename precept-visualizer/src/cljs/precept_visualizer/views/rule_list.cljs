@@ -1,9 +1,8 @@
 (ns precept-visualizer.views.rule-list
-  (:require [precept-visualizer.util :as util]
-            [precept-visualizer.views.consequents :as conseq]
-            [net.cgrand.packed-printer :as packed]
+  (:require [precept-visualizer.views.consequents :as conseq]
             [precept-visualizer.views.explanations :as explanations]
-            [precept.core :as precept]))
+            [precept.core :as precept]
+            [precept-visualizer.icons :as icons]))
 
 (defn prettify-rule [s]
   (let [[left right] (-> s (clojure.string/split #"=>") #_(clojure.string/split #":-"))]
@@ -22,13 +21,21 @@
    [:div {:style {:display "flex" :justify-content "flex-end"}}
     [:div
      {:on-click #(conseq/viewing-rule-history (str name) (not (boolean log-entry)))} ;; TODO. stringify before here
-     (if history "Hide history" "Show history")]]
+     [:div {:style {:height 24 :cursor "pointer"}
+            :title "History"}
+      [icons/clock {:style {:margin 6}}]
+      (if history "Hide history " "")]]]
    [:strong name]
    [:div type]
    [:pre (if (#{"rule" "subscription"} type)
            (prettify-rule (str source))
            (str source))]
-   (when log-entry
+   (cond
+     (nil? log-entry)
+     [:div ""]
+     (empty? log-entry)
+     [:div "No history"]
+     :else
      [explanations/rule-tracker name history theme])])
 
 

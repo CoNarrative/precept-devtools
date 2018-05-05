@@ -3,4 +3,4 @@
 
 (def orm-ratom (r/atom []))
 (def rule-definitions (r/atom {}))
-
+(def event-log (r/atom []))

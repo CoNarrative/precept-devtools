@@ -8,11 +8,11 @@
    :accent-text-color "peachpuff"
    :text-color "#ffffffc7"
    :disabled-text-color "#676b72"
-   :inverted-text-color "whitesmoke"})
+   :inverted-text-color "black"})
 
 (def light
   {:background-color "white"
-   :primary "blue"
+   :primary "#56a2c7"
    :secondary "red"
    :pre-background-color "#f8f8f845"
    :accent-text-color "peachpuff"

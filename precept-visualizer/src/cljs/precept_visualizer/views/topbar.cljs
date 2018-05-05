@@ -7,7 +7,11 @@
 (def right-arrow-icon " >")
 
 (def menu-data
-  [{:label "Themes"
+  [{:label "View"
+    :children [{:label "State controls"
+                :selected? :state-controls-visible?
+                :on-click #(conseq/state-controls-visible (not (:state-controls-visible? @%)))}]}
+   {:label "Themes"
     :children [{:label "Dark"
                 :selected? (fn [state] (-> state :selected-theme (= ::themes/dark)))
                 :on-click #(conseq/theme-is ::themes/dark)}

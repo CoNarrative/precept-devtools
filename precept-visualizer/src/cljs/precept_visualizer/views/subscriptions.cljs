@@ -34,7 +34,6 @@
         cur-sub-responses (sub-responses-for-state-num states state-index)
         prev-sub-responses (sub-responses-for-state-num states (dec state-index))]
     [:div
-     [:h1 "Subscriptions"]
      (for [[id sub-name] sub-requests]
        (let [cur-v (get cur-sub-responses id)
              prev-v (get prev-sub-responses id)

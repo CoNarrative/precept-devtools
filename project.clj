@@ -28,6 +28,7 @@
                  [ring-middleware-format "0.7.2"]
                  [ring/ring-core "1.5.1"]
                  [ring/ring-defaults "0.2.3"]
+                 [jumblerg/ring.middleware.cors "1.0.1"]
                  [secretary "1.2.3"]
                  [selmer "1.10.6"]]
 

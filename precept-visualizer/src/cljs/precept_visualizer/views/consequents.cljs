@@ -24,10 +24,10 @@
 (defn fact-format-is [kw]
   (then [:settings :settings/fact-format kw]))
 
-(defn viewing-rule-history [name show?]
+(defn viewing-rule-history [rule-name show?]
   (if show?
-    (then [:transient :rule-history/request name])
-    (then [:transient :rule-history/clear-request name])))
+    (then [:transient :rule-history/request rule-name])
+    (then [:transient :rule-history/clear-request rule-name])))
 
 (defn viewing-rule-history-event [rule-name event-index]
   (then {:db/id :transient
@@ -44,3 +44,6 @@
 
 (defn viewer-cleared [viewer-id]
   (then [:transient :fact-tracker.viewer.clear-request/viewer-id viewer-id]))
+
+(defn state-controls-visible [bool]
+  (then [:settings :settings/state-controls-visible? bool]))

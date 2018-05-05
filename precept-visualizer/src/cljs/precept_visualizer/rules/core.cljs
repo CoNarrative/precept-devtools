@@ -23,7 +23,10 @@
                            :view/mode :diff}
                           {:db/id :settings
                            :settings/selected-theme-id ::themes/light
-                           :settings/fact-format :vector}
+                           :settings/fact-format :vector
+                           :settings/state-controls-visible? true}
+                          {:db/id :windows
+                           :state-controls/height "6vh"}
                           (merge {:db/id ::themes/dark} themes/dark)
                           (merge {:db/id ::themes/light} themes/light)]))
 
@@ -48,6 +51,8 @@
 (define [:windows :main/width-percent (- 100 ?explanation-width)]
         :- [[:windows :explanations/width-percent ?explanation-width]])
 
+(define [:windows :state-controls/visible? ?bool] :- [[:settings :settings/state-controls-visible? ?bool]])
+
 
 (defsub :selected-theme
   [[:settings :settings/selected-theme-id ?theme-id]]
@@ -60,9 +65,11 @@
 (defsub :settings
   [[:settings :settings/selected-theme-id ?theme-id]]
   [[:settings :settings/fact-format ?fact-format]]
+  [[:settings :settings/state-controls-visible? ?state-controls-visible]]
   =>
   {:theme-id ?theme-id
-   :fact-format ?fact-format})
+   :fact-format ?fact-format
+   :state-controls-visible? ?state-controls-visible})
 
 
 (defsub :header

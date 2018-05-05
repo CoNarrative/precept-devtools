@@ -53,42 +53,36 @@
            ^{:key (str i a v)} [row ["" a v] styles])
          (rest av)))]))
 
-;(defn state-tree [*orm-states])
-;; What to name???
 (defn main [*orm-states theme]
-  (let [sub (precept/subscribe [:state-tree])
-        collapsed? (r/atom false)]
+  (let [sub (precept/subscribe [:state-tree])]
     (fn [*orm-states]
       (let [tree (get @*orm-states (:state/number @sub))]
         [:div {:style {:margin-left 24}}
-         [:h4 {:on-click #(reset! collapsed? (not @collapsed?))}
-          "State tree ^"]
-         (when (not @collapsed?)
-           [:table
-            [:thead
-             [:tr
-              [:th
-               {:style {:cursor "-webkit-grab"
-                        :paddingLeft 12}}
-               "e"]
-              [:th
-               {:style {:cursor "-webkit-grab"
-                        :width "30%"}
-                :on-mouse-down #(precept/then
-                                   [[:state-tree :state-tree.col/mouse-down-evt (doto % (.persist))]
-                                    [:state-tree :state-tree.col/mouse-down-on-col :a]])
-                :on-mouse-up #(precept/then
-                                  {:db/id :transient
-                                   :state-tree.col/mouse-up-on-col
-                                   :a})
-                :on-mouse-move #(precept/then
-                                 [[:transient :state-tree.col/mouse-move-evt (doto % (.persist))]
-                                  [:transient :state-tree.col/mouse-move-on-col :a]])}
-               "a"]
-              [:th
-               {:style {:cursor "-webkit-grab"}}
-               "v"]]]
-            (map-indexed
-              (fn [i [e av]]
-                ^{:key (str e)} [entity-rows i [e av]])
-              tree)])]))))
+         [:table
+          [:thead
+           [:tr
+            [:th
+             {:style {:cursor      "-webkit-grab"
+                      :paddingLeft 12}}
+             "e"]
+            [:th
+             {:style         {:cursor "-webkit-grab"
+                              :width  "30%"}
+              :on-mouse-down #(precept/then
+                                [[:state-tree :state-tree.col/mouse-down-evt (doto % (.persist))]
+                                 [:state-tree :state-tree.col/mouse-down-on-col :a]])
+              :on-mouse-up   #(precept/then
+                                {:db/id :transient
+                                 :state-tree.col/mouse-up-on-col
+                                        :a})
+              :on-mouse-move #(precept/then
+                                [[:transient :state-tree.col/mouse-move-evt (doto % (.persist))]
+                                 [:transient :state-tree.col/mouse-move-on-col :a]])}
+             "a"]
+            [:th
+             {:style {:cursor "-webkit-grab"}}
+             "v"]]]
+          (map-indexed
+            (fn [i [e av]]
+              ^{:key (str e)} [entity-rows i [e av]])
+            tree)]]))))

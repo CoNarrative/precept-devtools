@@ -138,7 +138,6 @@
      last-char]))
 
 (defn pattern-highlight-entity-map [fact colors]
-  (println "F" fact)
   [:span "{"
    (interpose " "
      (map (fn [slot]
