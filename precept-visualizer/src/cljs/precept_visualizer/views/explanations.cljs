@@ -46,12 +46,13 @@
     (str "Event " event-number)]])
 
 
-(defn schema-enforcement-explanation [caused-by-insert index-path conflict]
+(defn schema-enforcement-explanation [{:keys [caused-by-insert index-path conflict theme]}]
   (if caused-by-insert
     [:div (str "Caused by insert " (util/display-eav caused-by-insert)
                " at index path " index-path)]
     [:div
-     [:div {:class "label tag"}
+     [:div {:class "label tag"
+            :style {:color (:text-color theme)}}
       (str "Replaced")]
      [:pre (str (util/display-eav conflict))]
 
@@ -70,8 +71,9 @@
 
 
 (defn action-explanation [{:keys [event theme show-coordinates?]}]
-  (let [{:keys [state-number event-number facts type]} event
-        {:schema/keys [activated caused-by-insert conflict index-path]} event
+  (let [{:keys             [state-number event-number facts type]
+         :schema/keys      [caused-by-insert conflict index-path]
+         schema-activated? :schema/activated} event
         fact-format (:fact-format @(precept/subscribe [:settings]))]
     [:div {:class "example"
            :style {:display "flex"
@@ -86,8 +88,11 @@
         (event-parser/prettify-all-facts
           (first facts)
           {:trim-uuids? true :format fact-format}))]
-     (when activated
-       [schema-enforcement-explanation caused-by-insert index-path conflict])]))
+     (when schema-activated?
+       [schema-enforcement-explanation {:caused-by-insert caused-by-insert
+                                        :index-path index-path
+                                        :conflict conflict
+                                        :theme theme}])]))
 
 
 (defn rule-type-from-name [name]

@@ -63,7 +63,7 @@
   [[?state-id :state/number ?state-number]]
   =>
   (let [rule-event-eid (util/guid)]
-    (println "History event for rule exists at "
+  #_(println "History event for rule exists at "
              {:rule-name ?rule-name
               :event-id ?event-id
               :history-event-id rule-event-eid
@@ -81,7 +81,7 @@
   [[?rule-history-event :rule-history.event/event-id ?event-id]]
   [(<- ?rule-history-event-meta (entity ?rule-history-event))]
   =>
-  (println "Rule history event meta" ?rule-history-event-meta)
+;(println "Rule history event meta" ?rule-history-event-meta)
   (insert! [?rule-history :rule-history/event-meta ?rule-history-event-meta]))
 
 
@@ -89,7 +89,7 @@
   [[?rule-history :rule-history/rule-name]]
   [?history-events <- (acc/all :v) :from [?rule-history :rule-history/event-meta]]
   =>
-  (println "History events" ?history-events)
+  ;(println "History events" ?history-events)
   (insert! [?rule-history :rule-history/sorted-event-maps (sort-rule-history-tracker-events ?history-events)]))
 
 
@@ -123,7 +123,7 @@
   [[?rule-history :rule-history/selected-event-id ?event-id]]
   [[?event-id :event/log-entry ?log-entry]]
   =>
-  (println "Inserting log entry for rule history" ?event-id ?log-entry)
+  ;(println "Inserting log entry for rule history" ?event-id ?log-entry)
   (insert! [?rule-history :rule-history/selected-log-entry ?log-entry]))
 
 

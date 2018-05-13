@@ -71,8 +71,8 @@
 
 (defmethod handle-message :visualizer/init [[_ payload]]
   (println ":visualizer/init")
-  (println "Initial facts:")
-  (cljs.pprint/pprint (:facts payload))
+  ;(println "Initial facts:")
+  ;(cljs.pprint/pprint (:facts payload))
   (reset! state/orm-ratom (:orm-states payload))
   (reset! state/rule-definitions (:rule-definitions payload))
   (precept/then (:facts payload))
@@ -98,7 +98,8 @@
 (defmethod handle-event :chsk/state [{:keys [?data]}]
   (let [[last-state this-state] ?data]
     (when (:first-open? this-state)
-      (do (println (str "[visualiser] Connected to devtools server "))))))
+      (do (println (str "[visualiser] Connected to devtools server @ " config/api-url))
+          (precept/then [:server :devtools-server/connected? true])))))
 
 (defmethod handle-event :chsk/handshake [_])
 
@@ -112,15 +113,3 @@
   :start (sente/start-chsk-router! (:ch-recv @socket) handle-event))
 
 
-(defn get-log-entries-for-state-range [n1 n2]
-  (-> (js/fetch (str config/api-url "/log/range/" n1 "/" n2))
-      (.then (fn [x] (.text x)))
-      (.then cljs.reader/read-string)
-      (.catch js/console.error)))
-
-(comment
-  (-> (get-log-entries-for-state-range 0 3)
-      (.then #(->> %
-                (reduce concat)
-                (reset! state/event-log)))
-      (.catch pr)))

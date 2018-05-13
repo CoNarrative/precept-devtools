@@ -1,10 +1,11 @@
 (ns precept-visualizer.views.consequents
-  (:require [precept.core :as core :refer [then]]))
+  (:require [precept.core :refer [then]]))
 
 
 (defn tracking-state-number [state-number]
   (then [[:global :tracking/sync? false]
-         [:global :tracking/state-number state-number]]))
+         [:global :tracking/state-number state-number]
+         [:transient :tracking/changed-state-number-to state-number]]))
 
 (defn tracking-state-synced? [bool]
   (then [:global :tracking/sync? bool]))
@@ -47,3 +48,9 @@
 
 (defn state-controls-visible [bool]
   (then [:settings :settings/state-controls-visible? bool]))
+
+(defn selected-tab [kw]
+  (then [:transient :select-tab kw]))
+
+(defn event-log-sort-direction [kw]
+  (then [:event-log :event-log/sort kw]))

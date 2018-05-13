@@ -1,6 +1,26 @@
 (ns precept-visualizer.util
   (:require [cognitect.transit :as t]))
 
+;; From cljs.util
+(defn distinct-by
+  ([f coll]
+   (let [step (fn step [xs seen]
+                (lazy-seq
+                  ((fn [[x :as xs] seen]
+                     (when-let [s (seq xs)]
+                       (let [v (f x)]
+                         (if (contains? seen v)
+                           (recur (rest s) seen)
+                           (cons x (step (rest s) (conj seen v)))))))
+                    xs seen)))]
+     (step coll #{}))))
+
+(defn key-by [f coll]
+  (reduce
+    (fn [acc m]
+      (assoc acc (f m) m))
+    {}
+    coll))
 
 (defn display-eav [m] ((juxt :e :a :v) m))
 

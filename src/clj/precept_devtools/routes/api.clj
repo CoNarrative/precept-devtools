@@ -8,15 +8,8 @@
 
 (defn get-log-states-in-range [n1 n2]
   (let [log (:log @db)
-        num-states-available (count log)]
-    (if (or (zero? num-states-available)
-            (> n1 num-states-available))
-        []
-        (if (> n2 num-states-available)
-          (-> log
-              (subvec n1 num-states-available)
-              (conj (repeat (- n2 num-states-available) [])))
-          (subvec log n1 n2)))))
+        requested-range (apply range [n1 (inc n2)])]
+    (mapv #(get log %) requested-range)))
 
 (defroutes api-routes
   (POST "/update" [m] (update! m))
@@ -25,7 +18,3 @@
       (get-log-states-in-range (Integer/parseInt n1)
                                (Integer/parseInt n2)))))
 
-(comment
-  (get-log-states-in-range 1 3)
-  (subvec (:log @db) 0 3)
-  (subvec [1 2 3] 0 3))

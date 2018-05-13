@@ -61,6 +61,12 @@
 (defn right-arrow [{:keys [style] :as props}]
   [glyph-icon (assoc props :class "fas fa-arrow-right")])
 
+(defn link [{:keys [style] :as props}]
+  [glyph-icon (assoc props :class "fas fa-link")])
+
+(defn unlink [{:keys [style] :as props}]
+  [glyph-icon (assoc props :class "fas fa-unlink")])
+
 (comment
   (def rule-to-explain {:bindings     {:?fact {:v 18, :e :transient, :t 32, :a :input/key-code}},
                         :name         "precept.impl.rules/clean-transients___impl",

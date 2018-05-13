@@ -143,6 +143,7 @@
 
 (defn mk-client-schema []
   [
+   ;; Explanations
     (attribute :explanation/binding-ids
        :db.type/ref
        :db/cardinality :db.cardinality/many)
@@ -195,9 +196,14 @@
       :db.type/ref
       :db/cardinality :db.cardinality/many)
 
+
+   ;; Schemas
     (attribute :schemas/one-to-many
       :db.type/keyword
-      :db/cardinality :db.cardinality/many)])
+      :db/cardinality :db.cardinality/many)
+
+   ;; Event log
+])
 
 (def db-schema (mk-db-schema))
 (def client-schema (mk-client-schema))

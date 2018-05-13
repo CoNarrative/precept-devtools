@@ -132,8 +132,8 @@
     [:span
      first-char
      (interpose " "
-       (map (fn [slot]
-              ^{:key slot} [display-condition-value slot colors])
+       (map-indexed (fn [i slot]
+              ^{:key (str i slot)} [display-condition-value slot colors])
          fact))
      last-char]))
 
@@ -239,32 +239,33 @@
   "Returns markup for a rule's conditions or facts, displaying each on a new line."
   [eavs colors]
   [:pre
-   (for [eav eavs]
-     (cond
-       (vector? (first eav))
-       ^{:key eav} [tuple-condition-highlight (first eav) colors]
+   (->> eavs
+        (map-indexed
+          (fn [i eav]
+            (cond
+              (vector? (first eav))
+              ^{:key (str eav i)} [tuple-condition-highlight (first eav) colors]
 
-       ;; TODO. We don't have a spec that test for an accumulator condition.
-       ;; Testing for :from as a temporary hack
-       ;(s/valid? ::lang/accum-expr eav)
-       (some #{:from} eav)
-       ^{:key eav} [accumulator-highlight eav colors]
+              ;; TODO. We don't have a spec that test for an accumulator condition.
+              ;; Testing for :from as a temporary hack
+              ;(s/valid? ::lang/accum-expr eav)
+              (some #{:from} eav)
+              ^{:key (str eav i)} [accumulator-highlight eav colors]
 
-       (s/valid? ::lang/variable-binding (first eav))
-       ^{:key eav} [fact-binding-highlight eav colors]
+              (s/valid? ::lang/variable-binding (first eav))
+              ^{:key (str eav i)} [fact-binding-highlight eav colors]
 
-       (s/valid? ::lang/ops (first eav))
-       (display-op 0 eav false colors)
+              (s/valid? ::lang/ops (first eav))
+              (display-op 0 eav false colors)
 
-       true
-       [:span {:key eav}
-        "["
-        (interpose " "
-          (map (fn [slot]
-                 (if (list? slot)
-                   ^{:key (str eav slot)} [highlight-match-in-sexpr slot colors]
-                   ^{:key (str eav slot)} [display-condition-value slot colors]))
-            eav))
-        "]"
-        [:br]]))])
-
+              true
+              [:span {:key (str eav i)}
+               "["
+               (interpose " "
+                          (map-indexed (fn [j slot]
+                                 (if (list? slot)
+                                   ^{:key (str eav slot i j)} [highlight-match-in-sexpr slot colors]
+                                   ^{:key (str eav slot i j)} [display-condition-value slot colors]))
+                               eav))
+               "]"
+               [:br]]))))])

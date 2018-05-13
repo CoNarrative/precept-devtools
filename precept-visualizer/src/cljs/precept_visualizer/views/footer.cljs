@@ -5,12 +5,14 @@
 
 (defn icon-button [{:keys [style on-click disabled? icon]}]
   [:div {:style    style
-         :on-click (when (not disabled?) on-click)}
+         :on-click #(when-not disabled? (on-click %))}
    icon])
 
-(defn footer []
+(defn footer [theme]
   (let [{:keys [tracking/state-number tracking/sync?
-                max-state-number]} @(precept/subscribe [:header])]
+                max-state-number]} @(precept/subscribe [:header])
+        next-state? (not= max-state-number state-number)
+        prev-state? (not= state-number 0)]
     [:div {:style {:display          "flex"
                    :flex-direction   "column"
                    :background-color "grey"}}
@@ -29,12 +31,21 @@
         "Sync"]]
       [:div {:style {:display "flex" :align-items "center"}}
        [icon-button
-        {:on-click #(conseq/tracking-state-number (dec state-number))
-         :disabled (= state-number 0)
-         :icon     [icons/arrow-circle-left]}]
+        {:on-click  #(conseq/tracking-state-number (dec state-number))
+         :disabled? (not prev-state?)
+         :icon      [icons/arrow-circle-left
+                     {:style (if prev-state?
+                               {:cursor "pointer"}
+                               {:cursor "pointer"
+                                :color (:disabled-text-color theme)})}]}]
        [:strong {:style {:margin "0px 15px"}}
         (str "Fire rules #" state-number)]
        [icon-button
-        {:on-click #(conseq/tracking-state-number (inc state-number))
-         :disabled (= max-state-number state-number)
-         :icon     [icons/arrow-circle-right]}]]]]))
+        {
+         :on-click  #(conseq/tracking-state-number (inc state-number))
+         :disabled? (not next-state?)
+         :icon      [icons/arrow-circle-right
+                     {:style (if next-state?
+                               {:cursor "pointer"}
+                               {:cursor "pointer"
+                                :color (:disabled-text-color theme)})}]}]]]]))

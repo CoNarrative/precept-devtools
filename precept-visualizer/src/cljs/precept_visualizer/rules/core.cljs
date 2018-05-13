@@ -1,32 +1,35 @@
 (ns precept-visualizer.rules.core
   (:require-macros [precept.dsl :refer [<- entity entities]])
   (:require [precept.rules :refer [rule define session defsub]]
-            [precept.spec.sub :as sub]
             [precept.util :refer [insert! retract! insert-unconditional!] :as util]
             [precept.accumulators :as acc]
             [precept-visualizer.themes :as themes]
             [precept-visualizer.schema :refer [db-schema client-schema]]
-            [precept-visualizer.event-parser :as event-parser]
     ;; TODO. Rename other-rules ns
             [precept-visualizer.rules.rule-tracking]
             [precept-visualizer.rules.fact-tracking]
-            [precept-visualizer.other-rules]
-            [precept-visualizer.ws :as ws]))
+            [precept-visualizer.rules.event-log]
+            [precept-visualizer.other-rules]))
 
 
 (rule initial-facts
   {:group :action}
   [[:transient :start true]]
   =>
-  (insert-unconditional! [{:db/id :global
+  (insert-unconditional! [{:db/id          :global
                            :tracking/sync? true
-                           :view/mode :diff}
-                          {:db/id :settings
-                           :settings/selected-theme-id ::themes/light
-                           :settings/fact-format :vector
+                           :view/mode      :diff}
+                          {:db/id                            :settings
+                           :settings/selected-theme-id       ::themes/light
+                           :settings/fact-format             :vector
                            :settings/state-controls-visible? true}
-                          {:db/id :windows
+                          {:db/id                 :windows
                            :state-controls/height "6vh"}
+                          {:db/id         :tabs
+                           :tabs/selected :diff}
+                          {:db/id                     :event-log
+                           :event-log/fetched-states  #{}
+                           :event-log/sort-ascending? false}
                           (merge {:db/id ::themes/dark} themes/dark)
                           (merge {:db/id ::themes/light} themes/light)]))
 
@@ -38,6 +41,12 @@
   =>
   (insert-unconditional! [:global :tracking/state-number ?max]))
 
+
+(rule tab-selected-when-select-tab
+  {:group :action}
+  [[:transient :select-tab ?tab]]
+  =>
+  (insert-unconditional! [:tabs :tabs/selected ?tab]))
 
 (define [:global :max-state-number ?n] :- [?n <- (acc/max :v) :from [_ :state/number]])
 
@@ -132,11 +141,17 @@
   {:payload ?windows})
 
 
+(defsub :tabs
+  [[:tabs :tabs/selected ?selected-tab]]
+  =>
+  {:selected-tab ?selected-tab})
+
 
 (session visualizer-session
   'precept-visualizer.rules.core
   'precept-visualizer.rules.rule-tracking
   'precept-visualizer.rules.fact-tracking
+  'precept-visualizer.rules.event-log
   'precept-visualizer.other-rules
   :db-schema db-schema
   :client-schema client-schema
