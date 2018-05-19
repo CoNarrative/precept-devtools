@@ -1,13 +1,12 @@
 (ns precept-devtools.routes.home
-    (:require [hiccup.page :refer [html5 include-js]]
-              [compojure.core :refer [defroutes GET]]))
+  (:require [hiccup.page :refer [html5 include-js]]
+            [compojure.core :refer [defroutes GET]]
+            [compojure.route :as route]
+            [ring.util.response :as response]))
 
-(defn home-page []
-  (html5
-    [:head]
-    [:div#app]
-    [:div#graph]
-    (include-js "js/app.js")))
 
 (defroutes home-routes
-  (GET "*" [] (home-page)))
+  (route/resources "/")
+  (GET "*" []
+    (-> (response/resource-response "index.html" {:root "public"})
+        (response/content-type "text/html")) ))
