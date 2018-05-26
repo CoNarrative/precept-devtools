@@ -35,11 +35,11 @@ You should be able to connect to the Figwheel nREPL server at `localhost:7003` a
 access a CLJS REPL with `(cljs)`.
 
 If you don't have a Precept app running, you won't see much. As of `precept 0.5.0-alpha`, 
-`start!` accepts devtools options that allow the application to send socket messages 
+`precept.core/start!` accepts devtools options that allow the application to send socket messages 
 to the devtools server at its default location (`localhost:3232`).
 
 As of this writing, the easiest way to see what the devtools are capable of is probably to 
-run the latest todomvc or fullstack example in from the Precept repository:
+run the latest todomvc or fullstack example from the Precept repository:
 
 todomvc:
 ```bash
@@ -65,11 +65,12 @@ There are the beginnings of a REST API -- `GET /log/range/:n1/:n2` -- which retu
 
 The server receives a considerable amount of information from running Precept applications, including each rule definition and the schema being enforced. 
 
-Precept creates an event log with information about each consequence. When all rules are done firing,
-the batch of events are sent to the server along with a list of facts that were inserted and retracted and the resultant state. States/rule firings are assigned a number, along with 
-each event within them.
+With devtools enabled, `precept.core` accumulates an event log for each session operation. When `fire-rules` completes,
+a batch of events are sent to the server along with the resultant state and the diff relative to the previous state. Calls to `fire-rules` (also referred to 
+as "states") are id'd and numbered, along with each event within it. This allows us to refer to the first session event as state 0, event 0. Event 
+numbers are zeroed out for each state and counts start at 0, so the 5th event of the 2nd fire rules call is referred to as `state 1, event 4`.
 
-Owing to the Clara team's tremendous forethought and design decisions, each rule engine operation is observable and information rich. 
+Each session operation is observable and information rich thanks to the Clara team's tremendous forethought and design decisions in this space.  
 The event data shows:
 
 - The operation that took place  (`insert-logical!`, unconditional insert from within a rule, unconditional insert from outside a rule, retract from outside a rule, retract within a rule)
@@ -80,7 +81,7 @@ The event data shows:
 - The facts that were inserted or retracted
 - That a logically-inserted fact was removed because a rule's condition no longer obtained (i.e., whether and why truth maintenance took place)
 
-Like most debugging tools, this allows us to show what happened during our program's execution, but we can go a step further and also show why.
+Like most debugging tools, this allows us to show what happened during our program's execution, but we're also able to go a step further and explain why.
 
 
 ## Features
@@ -102,24 +103,42 @@ a rule's conditions ceasing to obtain.
 
 
 ### Fact tracking
-View of a fact by its entity id and attribute over the history of the session. A "tracker" can consist of one or more "viewers" to allow side-by-side comparison of a fact's value 
-at multiple points in time.
+Shows an explanation for a fact by its entity id and attribute. Initiated by clicking on a fact in the diff view. Shows an explanation for 
+the requested event and every other event the fact was involved in. 
+
+The list of the fact's occurrences and corresponding explanations are updated whenever new events take place in the inspected session.
+
+Trackers are focalized to the `e-a` identity of a fact but can consist of one or more "views" on that fact at different points in time 
+
+Additional views are automatically generated when the `[e a]` of the fact you want to inspect is already being tracked.
 
 ### Rule tracking
 Lists all rules in the session, showing history for them if there is any.
+Shows each event the rule participated in and an explanation for each. 
+Updates whenever new events take place in the inspected session.
 
 ### Explanations
 Shows why an event occurred. Varies according to the type of event.
 
-Action explanations: Shows the facts inserted.
+Rule explanations:
+Shows the rule name, its conditions, the facts that matched those conditions, and the facts that were inserted or removed as a consequence. 
+If the rule has variable bindings, shows the values that were bound to them at the time the rule fired. Pattern matches are color coded
+within rule conditions and the corresponding parts of facts that matched them.
 
-Schema enforcement explanations: Shows an upsert with the new fact that triggered it, the one that was removed, and the user-defined schema rule that was enforced.
 
-Rule explanations: Shows the rule name, its conditions, the facts that matched those conditions, and the facts that were inserted or removed as a consequence. 
-If the rule has variable bindings, shows the values bound to them at the time the rule fired.
+
+Schema enforcement explanations: 
+
+Displays for events where a fact was removed from the session in order to comply with a user-defined schema. 
+Shows the schema rule enforced, the inserted fact that triggered it, and the existing fact that was removed.
+
+Action explanations: 
+Shows the facts inserted. Because actions effectively stipulate the existence of a fact, no further explanation is generated.
+
+
 
 ### Subscriptions
-Lists each registered subscription and shows its previous and current values relative to the selected state.
+Lists each registered subscription and shows its previous and current values relative to the currently tracked state/fire-rules number.
 
 ### Actions
-Shows facts that were inserted for the first event of the selected state.
+Shows facts that were inserted at the start of the selected state via `precept.core/then` that initiated all other events within the current state/`fire-rules`. 
