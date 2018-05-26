@@ -2,7 +2,6 @@
   (:require [clojure.spec.alpha :as s]
             [precept.spec.lang :as lang]
             [precept.spec.event :as precept-event]))
-            ;[precept-visualizer.util :as util]))
 
 (declare ast->datomic-maps)
 
@@ -141,11 +140,18 @@
         with-symbols-injected (clojure.walk/postwalk-replace
                                 ast->binding-syms
                                 (:constraints condition))
-        forms-for-requested-slot  (filter #(some #{bound-variable-sym} %)
-                                    with-symbols-injected)
+        constraint-requested (some #(when (contains? (set %) (eav-kw eav-this-map)) %) (:constraints condition))
+        forms-for-requested-slot (filter #(some #{bound-variable-sym} %)
+                                         with-symbols-injected)
+        equality-assertion (when-not (some #(s/valid? ::lang/variable-binding %) constraint-requested)
+                             (clojure.set/difference (set constraint-requested)
+                                                     #{(eav-kw eav-this-map) '=}))
         bound-variable-decl (list '= bound-variable-sym bound-variable-sym)]
 
     (cond
+      (= (count equality-assertion) 1)
+      (first equality-assertion)
+
       (> (count forms-for-requested-slot) 1)
       ;; remove duplicate added by postwalk replace for variable binding declaration
       (some #(when (not= bound-variable-decl %) %)
@@ -223,44 +229,44 @@
     (into [(first xs) (first (second xs))] (nthrest xs 2))))
 
 
-(defn lhs->eav-syntax
-  "Returns vector of LHS expressions in Precept syntax"
-  [lhs]
-  (when-let [conditions (not-empty lhs)]
-    (let [slot->expression-binding (atom {})]
-      (reduce
-        (fn [acc ast]
-          (cond
-            ;; "op" is a boolean op expression which may be recursive
-            (s/valid? ::precept-event/op-prefixed-condition ast)
-            (let [op (first ast)
-                  as-lhs (drop-while #(not (map? %)) ast)]
-              (conj acc
-                (replace-double-vectors
-                  (into [op] (lhs->eav-syntax as-lhs)))))
+#_(defn lhs->eav-syntax
+    "Returns vector of LHS expressions in Precept syntax"
+    [lhs]
+    (when-let [conditions (not-empty lhs)]
+      (let [slot->expression-binding (atom {})]
+        (reduce
+          (fn [acc ast]
+            (cond
+              ;; "op" is a boolean op expression which may be recursive
+              (s/valid? ::precept-event/op-prefixed-condition ast)
+              (let [op (first ast)
+                    as-lhs (drop-while #(not (map? %)) ast)]
+                (conj acc
+                      (replace-double-vectors
+                        (into [op] (lhs->eav-syntax as-lhs)))))
 
-            (s/valid? ::precept-event/accumulator-map ast)
-            (let [as-lhs [(:from ast)]
-                  binding (symbol (str (name (:result-binding ast))))]
-              (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
+              (s/valid? ::precept-event/accumulator-map ast)
+              (let [as-lhs [(:from ast)]
+                    binding (symbol (str (name (:result-binding ast))))]
+                (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
 
-            (s/valid? ::fact-binding-expression ast)
-            (let [tuple-ast (select-keys ast [:type :constraints])
-                  binding (symbol (str (name (:fact-binding ast))))]
-              (conj acc
-                [binding '<-
-                 (ffirst
-                   (parse-as-positional-tuple
-                     slot->expression-binding acc tuple-ast))]))
+              (s/valid? ::fact-binding-expression ast)
+              (let [tuple-ast (select-keys ast [:type :constraints])
+                    binding (symbol (str (name (:fact-binding ast))))]
+                (conj acc
+                      [binding '<-
+                       (ffirst
+                         (parse-as-positional-tuple
+                           slot->expression-binding acc tuple-ast))]))
 
-            (s/valid? ::test-condition ast)
-            (conj acc (into [:test] (:constraints ast)))
+              (s/valid? ::test-condition ast)
+              (conj acc (into [:test] (:constraints ast)))
 
-            true
-            (parse-as-positional-tuple slot->expression-binding acc ast)))
+              true
+              (parse-as-positional-tuple slot->expression-binding acc ast)))
 
-        []
-        conditions))))
+          []
+          conditions))))
 
 
 (defn matchable-tokens-in-condition
@@ -365,6 +371,7 @@
           true
           x)))))
 
+; TODO. Issue #29
 (comment
   @state/event-log
   @state/rule-definitions
@@ -558,5 +565,88 @@
          (fn [m]
            (let [{:keys [display-name]} m]
              (if-let [user-rule-name (get rulegen-name->user-rule-name display-name)]
-               (log-entry-for-generated-rule (get @rule-definitions* user-rule-name) m)
+               (pr user-rule-name)
+               #_(log-entry-for-generated-rule (get @rule-definitions* user-rule-name) m)
                (pr 'not-impl)))))))
+(def lhs
+  (->
+    '{:bindings     {:?e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267"},
+      :name         "todomvc.rules/define-1884818656",
+      :type         :add-facts-logical,
+      :ns-name      todomvc.rules,
+      :lhs
+                    [[:or
+                      [:and
+                       {:constraints [(= :all (:v this))], :type :visibility-filter}
+                       {:constraints [(= ?e (:e this))], :type :todo/title}]
+                      [:and
+                       {:constraints [(= :done (:v this))], :type :visibility-filter}
+                       {:constraints [(= ?e (:e this)) (= true (:v this))],
+                        :type        :todo/done}]
+                      [:and
+                       {:constraints [(= :active (:v this))], :type :visibility-filter}
+                       {:constraints [(= ?e (:e this)) (= false (:v this))],
+                        :type        :todo/done}]]],
+      :event-number 5,
+      :matches
+                    [[{:v :all, :e :global, :t 0, :a :visibility-filter} 7]
+                     [{:v "Hi",
+                       :e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267",
+                       :t 13,
+                       :a :todo/title}
+                      8]],
+      :id           #uuid "5bbf2b6a-d663-4273-abf6-1ac866186235",
+      :display-name
+                    "[[:or [:and {:type :visibility-filter, :constraints [(= :all (:v this))]} {:type :todo/title, :constraints [(= ?e (:e this))]}] [:and {:type :visibility-filter, :constraints [(= :done (:v this))]} {:type :todo/done, :constraints [(= ?e (:e this)) (= true (:v this))]}] [:and {:type :visibility-filter, :constraints [(= :active (:v this))]} {:type :todo/done, :constraints [(= ?e (:e this)) (= false (:v this))]}]]]",
+      :state-id     #uuid "5c670c1f-7ae5-40f6-8007-926deefbeb9a",
+      :facts
+                    ({:v true,
+                      :e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267",
+                      :t 18,
+                      :a :todo/visible}),
+      :rhs          (do (precept.util/insert! [?e :todo/visible true])),
+      :state-number 4,
+      :props        nil}
+
+    :lhs))
+;lhs->eav-syntax)
+;(lhs->eav-syntax lhs)
+(defn lhs->eav-syntax
+  "Returns vector of LHS expressions in Precept syntax"
+  [lhs]
+  (when-let [conditions (not-empty lhs)]
+    (let [slot->expression-binding (atom {})]
+      (letfn [(parse [acc ast]
+                (pr "parsing" acc ast)
+                (cond
+                  ;; "op" is a boolean op expression which may be recursive
+                  (s/valid? ::precept-event/op-prefixed-condition ast)
+                  (let [op (first ast)
+                        as-lhs (drop-while #(not (map? %)) ast)
+                        rst (into [op] (if (empty? as-lhs)
+                                         (mapcat #(parse acc %) (rest ast))
+                                         (mapcat #(first (parse acc %)) as-lhs)))]
+                    (if (seq (first acc))
+                      (into acc rst)
+                      (conj acc rst)))
+
+                  (s/valid? ::precept-event/accumulator-map ast)
+                  (let [as-lhs [(:from ast)]
+                        binding (symbol (str (name (:result-binding ast))))]
+                    (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
+
+                  (s/valid? ::fact-binding-expression ast)
+                  (let [tuple-ast (select-keys ast [:type :constraints])
+                        binding (symbol (str (name (:fact-binding ast))))]
+                    (conj acc
+                          [binding '<-
+                           (ffirst
+                             (parse-as-positional-tuple
+                               slot->expression-binding acc tuple-ast))]))
+
+                  (s/valid? ::test-condition ast)
+                  (conj acc (into [:test] (:constraints ast)))
+
+                  true
+                  (parse-as-positional-tuple slot->expression-binding acc ast)))]
+        (reduce parse [] conditions)))))

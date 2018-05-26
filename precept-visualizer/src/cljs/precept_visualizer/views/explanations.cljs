@@ -86,7 +86,7 @@
      [:pre
       (matching/format-edn-str
         (event-parser/prettify-all-facts
-          (first facts)
+          facts
           {:trim-uuids? true :format fact-format}))]
      (when schema-activated?
        [schema-enforcement-explanation {:caused-by-insert caused-by-insert

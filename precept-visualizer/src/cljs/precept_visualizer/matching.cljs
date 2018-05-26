@@ -208,36 +208,55 @@
                                (ops-exprs)
                                (count))]
     (if-let [has-next (> (count xs) 2)]
-       [:span
-        {:key (str xs)
-         :style {:margin-left (* depth 12)}}
-        "["
-        (str (first xs) " ")
-        [:br]
-        ;; TODO. (second eav) is only for test case.
-        ;; Should be for any [e a v] form within the
-        ;; boolean op that is not prefixed by another op
-        [:span {:style {:margin-left (* (inc depth) 12)}}
-          [tuple-constraint-highlight (second xs) colors]
-          [:br]
-          (map-indexed
-            #(display-op
-               (inc depth)
-               %2
-               (= %1 (dec next-depth-ops-count))
-               colors)
-            (nthrest xs 2))]
-        "]"]
-       [:span
-        {:key (str xs)
-         :style {:margin-left (* depth 12)}}
-        "[" (str (first xs) " ")
+      [:span
+       {:key (str xs)
+        :style {:margin-left (* depth 12)}}
+       "["
+       (str (first xs) " ")
+       [:br]
+       [:span {:style {:margin-left (* (inc depth) 12)}}
         [tuple-constraint-highlight (second xs) colors]
-        "]" (when-not last? [:br])])))
+        [:br]
+        (map-indexed
+          #(display-op
+             (inc depth)
+             %2
+             (= %1 (dec next-depth-ops-count))
+             colors)
+          (nthrest xs 2))]
+       "]"]
+      [:span
+       {:key   (str xs)
+        :style {:margin-left (* depth 12)}}
+       "[" (str (first xs) " ")
+       [tuple-constraint-highlight (second xs) colors]
+       "]" (when-not last? [:br])])))
+
+(defn display-boolean [depth xs last? colors]
+  (if-let [op (#{:or :and} (first xs))]
+    [:span
+     {:key   (str xs)
+      :style {:margin-left (* depth 12)}}
+     "["
+     (str op " ")
+     [:br]
+     (if (#{:or :and} (first (second xs)))
+       (map-indexed (fn [i x] (display-boolean (inc depth) x (= (inc i) (count (rest xs))) colors)) (rest xs))
+       (display-boolean (inc depth)
+                        (rest xs)
+                        nil colors))
+     [:span "]"] (when-not last? [:br])]
+    (map-indexed (fn [i t]
+                   [:span {:key i :style {:margin-left (* 12 depth)}}
+                    [tuple-constraint-highlight t colors]
+                    (when (not= (inc i) (count xs))
+                      [:br])])
+                 xs)))
 
 (defn pattern-highlight
   "Returns markup for a rule's conditions or facts, displaying each on a new line."
   [eavs colors]
+  (pr eavs)
   [:pre
    (->> eavs
         (map-indexed
@@ -254,6 +273,9 @@
 
               (s/valid? ::lang/variable-binding (first eav))
               ^{:key (str eav i)} [fact-binding-highlight eav colors]
+
+              (#{:and :or} (first eav))
+              (display-boolean 0 eav false colors)
 
               (s/valid? ::lang/ops (first eav))
               (display-op 0 eav false colors)
