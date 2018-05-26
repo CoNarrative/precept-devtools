@@ -1,0 +1,46 @@
+<svg width="70px" height="58px" viewBox="0 0 70 58" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.1 (47250) - http://www.bohemiancoding.com/sketch -->
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#5B71B3" offset="100%"></stop>
+        </linearGradient>
+        <polygon id="path-2" points="35 0 70 58 0 58"></polygon>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-3">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#5B9CB3" offset="100%"></stop>
+        </linearGradient>
+        <polygon id="path-4" points="35 0 35 58 0 58"></polygon>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-5">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#5BB1B3" offset="100%"></stop>
+        </linearGradient>
+        <polygon id="path-6" points="35 0 17.5 58 0 58"></polygon>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-7">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#705BB3" offset="100%"></stop>
+        </linearGradient>
+        <polygon id="path-8" points="69 0 51.5 58 34 58"></polygon>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" fill-rule="nonzero">
+            <g id="Triangle" transform="translate(35.000000, 29.000000) scale(-1, 1) rotate(-180.000000) translate(-35.000000, -29.000000) ">
+                <use fill="url(#linearGradient-1)" fill-rule="evenodd" xlink:href="#path-2"></use>
+                <path stroke="#FFFFFF" stroke-width="1" d="M35,0.967745117 L0.88570826,57.5 L69.1142917,57.5 L35,0.967745117 Z"></path>
+            </g>
+            <g id="Triangle" transform="translate(17.500000, 29.000000) scale(-1, 1) rotate(-180.000000) translate(-17.500000, -29.000000) ">
+                <use fill="url(#linearGradient-3)" fill-rule="evenodd" xlink:href="#path-4"></use>
+                <path stroke="#FFFFFF" stroke-width="1" d="M34.5,1.79631655 L0.88570826,57.5 L34.5,57.5 L34.5,1.79631655 Z"></path>
+            </g>
+            <g id="Triangle" transform="translate(17.500000, 29.000000) scale(-1, 1) rotate(-180.000000) translate(-17.500000, -29.000000) ">
+                <use fill="url(#linearGradient-5)" fill-rule="evenodd" xlink:href="#path-6"></use>
+                <path stroke="#FFFFFF" stroke-width="1" d="M33.3714885,3.66642133 L0.88570826,57.5 L17.1285984,57.5 L33.3714885,3.66642133 Z"></path>
+            </g>
+            <g id="Triangle" transform="translate(51.500000, 29.000000) rotate(180.000000) translate(-51.500000, -29.000000) ">
+                <use fill="url(#linearGradient-7)" fill-rule="evenodd" xlink:href="#path-8"></use>
+                <path stroke="#FFFFFF" stroke-width="1" d="M67.3714885,3.66642133 L34.8857083,57.5 L51.1285984,57.5 L67.3714885,3.66642133 Z"></path>
+            </g>
+        </g>
+    </g>
+</svg>
