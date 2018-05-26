@@ -9,6 +9,3 @@
   :load-warninged-code true
   :on-jsload #(do (println "Loaded.")
                   (core/render!)))
-
-(core/main)
-

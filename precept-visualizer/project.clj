@@ -46,30 +46,41 @@
     :source-paths ["src/cljs" "src/cljc"]
     :resource-paths ["env/dev/resources"]
 
-    :cljsbuild
-    {:builds
-     [{:id "dev"
-       :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
-       :compiler
-                    {:main "precept-visualizer.app"
-                     :output-to "target/cljsbuild/public/js/app.js"
-                     :output-dir "target/cljsbuild/public/js/out"
-                     :asset-path "/js/out"
-                     :optimizations :none
-                     :cache-analysis false
-                     :source-map true
-                     :pretty-print true}}
-      {:id "devcards"
-       :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
-       :figwheel { :devcards true}
-       :compiler { :main    "precept-visualizer.cards"
-                   :asset-path "js/devcards_out"
-                   :optimizations :none
-                   :source-map true
-                   :output-to  "target/cljsbuild/public/js/visualizer_devcards.js"
-                   :output-dir "target/cljsbuild/public/js/devcards_out"
-                   :source-map-timestamp true}}]}
-    :deploy-repositories [["releases"  {:sign-releases false
-                                        :url "https://clojars.org/repo"}]
+    :cljsbuild           {:builds
+                          [{:id           "dev"
+                            :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
+                            :compiler     {:main            "precept-visualizer.app"
+                                           :output-to       "target/cljsbuild/public/js/app.js"
+                                           :output-dir      "target/cljsbuild/public/js/out"
+                                           :asset-path      "/js/out"
+                                           :optimizations   :none
+                                           :cache-analysis  false
+                                           :source-map      true
+                                           :pretty-print    true
+                                           :preloads        [devtools.preload]
+                                           :external-config {:devtools/config {:features-to-install :all}}}}
+                           {:id           "min"
+                            :source-paths ["src/cljs" "src/cljc"]
+                            :compiler     {:main            "precept-visualizer.core"
+                                           :output-dir      "resources/public/js"
+                                           :output-to       "resources/public/js/app.js"
+                                           :source-map      "resources/public/js/app.js.map"
+                                           :closure-defines {goog.DEBUG false}
+                                           :optimizations   :advanced
+                                           :cache-analysis  false
+                                           :externs ["externs/chroma.js"]
+                                           :pretty-print    false}}
+                           {:id           "devcards"
+                            :source-paths ["dev/clj" "dev/cljs" "src/cljs" "src/cljc"]
+                            :figwheel     {:devcards true}
+                            :compiler     {:main                 "precept-visualizer.cards"
+                                           :asset-path           "js/devcards_out"
+                                           :optimizations        :none
+                                           :source-map           true
+                                           :output-to            "target/cljsbuild/public/js/visualizer_devcards.js"
+                                           :output-dir           "target/cljsbuild/public/js/devcards_out"
+                                           :source-map-timestamp true}}]}
+    :deploy-repositories [["releases" {:sign-releases false
+                                       :url           "https://clojars.org/repo"}]
                           ["snapshots" {:sign-releases false
-                                        :url "https://clojars.org/repo"}]]}})
+                                        :url           "https://clojars.org/repo"}]]}})
