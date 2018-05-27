@@ -281,7 +281,7 @@
     "]"]
    [close-button {:label "Remove tracker"
                   :on-click #(conseq/tracker-cleared tracker-id)}]
-   (for [viewer (sort-by :fact-tracker.viewer/fact-t (map first viewers))] ;;TODO. Why first?
+   (for [viewer (map first viewers)]
      (let [{:fact-tracker.viewer/keys [selected-occurrence-index selected-log-entry]
             :as                       viewer-args} viewer
            viewer-id (:db/id viewer-args)]
@@ -315,12 +315,13 @@
         [:div {:style {:display "flex" :flex-direction "row"}}
          [:div {:style {:min-width "15px"}}]
          [:div {:style {:width "100%" :display "flex" :flex-direction "column"}}
-          (for [tracker trackers]
-            (let [{:fact-tracker/keys [fact-e fact-a viewer-subs total-event-count]} tracker]
-              ^{:key (:db/id tracker)} [fact-tracker {:tracker-id (:db/id tracker)
-                                                      :fact-e fact-e
-                                                      :fact-a fact-a
-                                                      :viewers viewer-subs
-                                                      :total-event-count total-event-count
-                                                      :theme theme}]))]
+          (for [tracker (reverse trackers)]
+            (let [{:fact-tracker/keys [fact-e fact-a viewer-subs total-event-count]
+                   :db/keys [id]} tracker]
+              ^{:key id} [fact-tracker {:tracker-id        id
+                                        :fact-e            fact-e
+                                        :fact-a            fact-a
+                                        :viewers           viewer-subs
+                                        :total-event-count total-event-count
+                                        :theme             theme}]))]
          [:div {:style {:min-width "15px"}}]]]])))
