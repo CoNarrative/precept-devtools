@@ -2,6 +2,7 @@
   (:require [precept.core :as precept]
             [precept-visualizer.util :as util]
             [precept-visualizer.event-parser :as event-parser]
+            [precept-visualizer.state :as viz-state]
             [precept-visualizer.matching :as matching]
             [precept-visualizer.views.consequents :as conseq]
             [net.cgrand.packed-printer :as packed]
@@ -193,8 +194,8 @@
 
 (defn rule-explanation [{:keys [event theme show-coordinates?]}]
   (let [{:keys [lhs bindings name type matches display-name rhs state-number event-number
-                facts props ns-name]} event
-        eav-conditions (event-parser/lhs->eav-syntax lhs)
+                facts props ns-name generated?]} event
+        eav-conditions (if generated? lhs (event-parser/lhs->eav-syntax lhs))
         colors (matching/eav-conditions->colors eav-conditions bindings)]
     [:div {:class "example"
            :style {:display "flex"
@@ -211,7 +212,8 @@
 (defn explanation [{:keys [event theme show-coordinates?]
                     :or {show-coordinates? true}
                     :as args}]
-  (let [props (merge args {:show-coordinates? show-coordinates?})]
+  (let [props (merge args {:show-coordinates? show-coordinates?
+                           :event             (first (event-parser/parse-log [event] @viz-state/rule-definitions))})]
     (cond
       (nil? event)
       nil

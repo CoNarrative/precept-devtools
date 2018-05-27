@@ -265,7 +265,7 @@
               (vector? (first eav))
               ^{:key (str eav i)} [tuple-condition-highlight (first eav) colors]
 
-              ;; TODO. We don't have a spec that test for an accumulator condition.
+              ;; TODO. We don't have a spec for an accumulator condition.
               ;; Testing for :from as a temporary hack
               ;(s/valid? ::lang/accum-expr eav)
               (some #{:from} eav)

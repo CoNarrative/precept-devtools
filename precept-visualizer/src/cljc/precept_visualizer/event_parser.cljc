@@ -1,6 +1,8 @@
 (ns precept-visualizer.event-parser
   (:require [clojure.spec.alpha :as s]
             [precept.spec.lang :as lang]
+            [clojure.string :as str]
+            [cljs.reader :as reader]
             [precept.spec.event :as precept-event]))
 
 (declare ast->datomic-maps)
@@ -13,6 +15,12 @@
 
 ;; CLJC failing on reload, copying from util here
 (defn display-eav [m] ((juxt :e :a :v) m))
+(defn key-by [f coll]
+  (reduce
+    (fn [acc m]
+      (assoc acc (f m) m))
+    {}
+    coll))
 
 (def eav-this-map
   {:e '(:e this) :a '(:a this) :v '(:v this)})
@@ -194,7 +202,7 @@
 
 (defn parse-as-positional-tuple
   [slot->expression-binding acc ast]
-  (if (= :precept.spec.sub/request (:type ast)) ;; Omit sub request conditions
+  (if (or (:generated? ast) (= :precept.spec.sub/request (:type ast)))           ;; Omit sub request conditions
     acc
     (let [e (ast->positional
               slot->expression-binding ast :e)
@@ -228,46 +236,44 @@
          (vector? (first (second xs))))
     (into [(first xs) (first (second xs))] (nthrest xs 2))))
 
+(defn lhs->eav-syntax
+  "Returns vector of LHS expressions in Precept syntax"
+  [lhs]
+  (when-let [conditions (not-empty lhs)]
+    (let [slot->expression-binding (atom {})]
+      (letfn [(parse [acc ast]
+                (cond
+                  ;; "op" is a boolean op expression which may be recursive
+                  (s/valid? ::precept-event/op-prefixed-condition ast)
+                  (let [op (first ast)
+                        as-lhs (drop-while #(not (map? %)) ast)
+                        rst (into [op] (if (empty? as-lhs)
+                                         (mapcat #(parse acc %) (rest ast))
+                                         (mapcat #(first (parse acc %)) as-lhs)))]
+                    (if (seq (first acc))
+                      (into acc rst)
+                      (conj acc rst)))
 
-#_(defn lhs->eav-syntax
-    "Returns vector of LHS expressions in Precept syntax"
-    [lhs]
-    (when-let [conditions (not-empty lhs)]
-      (let [slot->expression-binding (atom {})]
-        (reduce
-          (fn [acc ast]
-            (cond
-              ;; "op" is a boolean op expression which may be recursive
-              (s/valid? ::precept-event/op-prefixed-condition ast)
-              (let [op (first ast)
-                    as-lhs (drop-while #(not (map? %)) ast)]
-                (conj acc
-                      (replace-double-vectors
-                        (into [op] (lhs->eav-syntax as-lhs)))))
+                  (s/valid? ::precept-event/accumulator-map ast)
+                  (let [as-lhs [(:from ast)]
+                        binding (symbol (str (name (:result-binding ast))))]
+                    (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
 
-              (s/valid? ::precept-event/accumulator-map ast)
-              (let [as-lhs [(:from ast)]
-                    binding (symbol (str (name (:result-binding ast))))]
-                (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
+                  (s/valid? ::fact-binding-expression ast)
+                  (let [tuple-ast (select-keys ast [:type :constraints])
+                        binding (symbol (str (name (:fact-binding ast))))]
+                    (conj acc
+                          [binding '<-
+                           (ffirst
+                             (parse-as-positional-tuple
+                               slot->expression-binding acc tuple-ast))]))
 
-              (s/valid? ::fact-binding-expression ast)
-              (let [tuple-ast (select-keys ast [:type :constraints])
-                    binding (symbol (str (name (:fact-binding ast))))]
-                (conj acc
-                      [binding '<-
-                       (ffirst
-                         (parse-as-positional-tuple
-                           slot->expression-binding acc tuple-ast))]))
+                  (s/valid? ::test-condition ast)
+                  (conj acc (into [:test] (:constraints ast)))
 
-              (s/valid? ::test-condition ast)
-              (conj acc (into [:test] (:constraints ast)))
-
-              true
-              (parse-as-positional-tuple slot->expression-binding acc ast)))
-
-          []
-          conditions))))
-
+                  true
+                  (parse-as-positional-tuple slot->expression-binding acc ast)))]
+        (reduce parse [] conditions)))))
 
 (defn matchable-tokens-in-condition
   "Returns a seq of tokens from a condition that may have been matched on."
@@ -371,282 +377,61 @@
           true
           x)))))
 
-; TODO. Issue #29
-(comment
-  @state/event-log
-  @state/rule-definitions
+(defn rules-with-entities-macro [rule-definitions]
+  (->> rule-definitions
+       (map (comp str :name))
+       (group-by #(first (str/split % #"___impl")))
+       (filter #(> (count (second %)) 1))
+       (into {})))
 
-  ;; rule def 1
-  (def rule-defs
-    [
-     '{:ns     nil,
-       :name   task-list-sub___impl___impl_split-0,
-       :type   "subscription",
-       :source "(defsub :task-list [?eids <- (acc/by-fact-id :e) :from [:todo/visible]] [(<- ?visible-todos (entities ?eids))] [[_ :active-count ?active-count]] => {:visible-todos ?visible-todos, :all-complete? (= 0 ?active-count)})",
-       :lhs    ([?eids <- (acc/by-fact-id :e) :from [:todo/visible]]),
-       :id     #uuid"bd6d0327-ec89-4a31-8450-47c159e6364e",
-       :rhs    (do
-                 (precept.util/insert!
-                   [[#uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957" :precept.spec.rulegen/for-rule task-list-sub___impl]
-                    [#uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957" :precept.spec.rulegen/for-macro :precept.spec.rulegen/entities]
-                    [#uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957" :precept.spec.rulegen/request-params ?eids]
-                    [#uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957" :precept.spec.rulegen.entities/order ?eids]])
-                 (clojure.core/doseq
-                   [eid__53710__auto__ ?eids]
-                   (precept.util/insert!
-                     [#uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957" :precept.spec.rulegen.entities/eid eid__53710__auto__])))}
-     ;; rule def 2
-     '{:ns     nil,
-       :name   task-list-sub___impl,
-       :type   "subscription",
-       :source "(defsub :task-list [?eids <- (acc/by-fact-id :e) :from [:todo/visible]] [(<- ?visible-todos (entities ?eids))] [[_ :active-count ?active-count]] => {:visible-todos ?visible-todos, :all-complete? (= 0 ?active-count)})",
-       :lhs    ([:precept.spec.sub/request (= ?e___sub___impl (:e this)) (= :task-list (:v this))]
-                 [:precept.spec.rulegen/for-rule (= ?54076 (:e this)) (= task-list-sub___impl (:v this))]
-                 [:precept.spec.rulegen/for-macro (= ?54076 (:e this)) (= :precept.spec.rulegen/entities (:v this))]
-                 [:precept.spec.rulegen/request-params (= ?54076 (:e this)) (= ?eids (:v this))]
-                 [:precept.spec.rulegen/response (= ?54076 (:e this)) (= ?visible-todos (:v this))]
-                 [:active-count (= ?active-count (:v this))]),
-       :id     #uuid"20720d60-3fd1-4a0f-834a-5cd9fc77cd23",
-       :rhs    (do
-                 (precept.util/insert!
-                   [?e___sub___impl
-                    :precept.spec.sub/response
-                    {:visible-todos ?visible-todos, :all-complete? (= 0 ?active-count)}]))}])
+(defn make-rulegen-name->user-rule-name [xs]
+  (reduce-kv
+    (fn [acc user-rule-name rulegen-names]
+      (->> rulegen-names
+           (map #(assoc acc % user-rule-name))
+           (into {})))
+    {}
+    xs))
 
+(def kebab-case-regex #"[a-z]+(?:-[a-z]+)*")
+(def variable-binding-regex #"\?[a-z]+(?:-[a-z]+)*")
+(def special-form-regex #"\[\(<-[^\]]+.]")
+(defn get-special-form [source-str]
+  (re-find #"\[\(<-[^\]]+.]" source-str))
+(defn key-rules-by-name [rule-definitions] (key-by (comp str :name) rule-definitions))
 
-  ; entities macro sub in event log
-  (def log
-    [
-     '{:bindings     {:?e___sub___impl #uuid"20f32cc0-b007-4c83-8ffa-e3748f105a40",
-                      :?54076          #uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957",
-                      :?eids           (#uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36" #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37"),
-                      :?visible-todos  ([{:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/title, :v "Hi", :t 13}
-                                         {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/visible, :v true, :t 18}
-                                         {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/done, :v true, :t 31}]
-                                         [{:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/title, :v "there!", :t 15}
-                                          {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/done, :v false, :t 16}
-                                          {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/visible, :v true, :t 19}]),
-                      :?active-count   1},
-       :name         "todomvc.rules/task-list-sub___impl",
-       :type         :add-facts-logical,
-       :ns-name      todomvc.rules,
-       :lhs          [{:type :precept.spec.sub/request, :constraints [(= ?e___sub___impl (:e this)) (= :task-list (:v this))]}
-                      {:type :precept.spec.rulegen/for-rule, :constraints [(= ?54076 (:e this)) (= task-list-sub___impl (:v this))]}
-                      {:type        :precept.spec.rulegen/for-macro,
-                       :constraints [(= ?54076 (:e this)) (= :precept.spec.rulegen/entities (:v this))]}
-                      {:type :precept.spec.rulegen/request-params, :constraints [(= ?54076 (:e this)) (= ?eids (:v this))]}
-                      {:type :precept.spec.rulegen/response, :constraints [(= ?54076 (:e this)) (= ?visible-todos (:v this))]}
-                      {:type :active-count, :constraints [(= ?active-count (:v this))]}],
-       :event-number 8,
-       :matches      [[{:e #uuid"20f32cc0-b007-4c83-8ffa-e3748f105a40", :a :precept.spec.sub/request, :v :task-list, :t 9} 27]
-                      [{:e #uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957",
-                        :a :precept.spec.rulegen/for-rule,
-                        :v {:ns-name todomvc.rules,
-                            :lhs     [{:type        :precept.spec.sub/request,
-                                       :constraints [(= ?e___sub___impl (:e this)) (= :task-list (:v this))]}
-                                      {:type        :precept.spec.rulegen/for-rule,
-                                       :constraints [(= ?54076 (:e this)) (= task-list-sub___impl (:v this))]}
-                                      {:type        :precept.spec.rulegen/for-macro,
-                                       :constraints [(= ?54076 (:e this)) (= :precept.spec.rulegen/entities (:v this))]}
-                                      {:type        :precept.spec.rulegen/request-params,
-                                       :constraints [(= ?54076 (:e this)) (= ?eids (:v this))]}
-                                      {:type        :precept.spec.rulegen/response,
-                                       :constraints [(= ?54076 (:e this)) (= ?visible-todos (:v this))]}
-                                      {:type :active-count, :constraints [(= ?active-count (:v this))]}],
-                            :rhs     (do
-                                       (do
-                                         (do
-                                           (precept.util/insert!
-                                             [?e___sub___impl
-                                              :precept.spec.sub/response
-                                              {:visible-todos ?visible-todos, :all-complete? (= 0 ?active-count)}])))),
-                            :props   {:group :report},
-                            :name    "todomvc.rules/task-list-sub___impl"},
-                        :t 21}
-                       28]
-                      [{:e #uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957",
-                        :a :precept.spec.rulegen/for-macro,
-                        :v :precept.spec.rulegen/entities,
-                        :t 22}
-                       29]
-                      [{:e #uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957",
-                        :a :precept.spec.rulegen/request-params,
-                        :v (#uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36" #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37"),
-                        :t 23}
-                       30]
-                      [{:e #uuid"8b4f0908-52ef-40ad-bfd4-cfd84449a957",
-                        :a :precept.spec.rulegen/response,  ; < --- entity macro matches
-                        :v ([{:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/title, :v "Hi", :t 13}
-                             {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/visible, :v true, :t 18}
-                             {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/done, :v true, :t 31}]
-                             [{:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/title, :v "there!", :t 15}
-                              {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/done, :v false, :t 16}
-                              {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/visible, :v true, :t 19}]),
-                        :t 34}
-                       31]
-                      [{:e :global, :a :active-count, :v 1, :t 35} 32]] ; <-- other matches,
-       :id           #uuid"87e49b2b-24a7-4d27-ae57-913c99587376",
-       :display-name "task-list-sub___impl",
-       :state-id     #uuid"344496e4-f4a9-47de-8182-465578289892",
-       :facts        ({:e #uuid"20f32cc0-b007-4c83-8ffa-e3748f105a40",
-                       :a :precept.spec.sub/response,
-                       :v {:visible-todos ([{:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/title, :v "Hi", :t 13} ; <-- sub inserted
-                                            {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/visible, :v true, :t 18}
-                                            {:e #uuid"f2d16f96-8916-4d34-acdb-6ce0bbc11e36", :a :todo/done, :v true, :t 31}]
-                                            [{:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/title, :v "there!", :t 15}
-                                             {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/done, :v false, :t 16}
-                                             {:e #uuid"087e08e8-135b-42c6-85ee-0c8dff1b5a37", :a :todo/visible, :v true, :t 19}]),
-                           :all-complete? false},
-                       :t 36}),
-       :rhs          (do
-                       (do
-                         (do
-                           (precept.util/insert!
-                             [?e___sub___impl
-                              :precept.spec.sub/response
-                              {:visible-todos ?visible-todos, :all-complete? (= 0 ?active-count)}])))),
-       :state-number 5,
-       :props        {:group :report}}])
+(defn source->bindings [rule-source-str]
+  (->> (re-seq (re-pattern variable-binding-regex) rule-source-str)
+       (set)
+       (map keyword)))
 
+(defn rule-def-for-entities-macro [source {:keys [rhs matches bindings] :as event}]
+  (let [declared-bindings (source->bindings source)
+        source-edn        (reader/read-string source)]
+    (merge event
+      {:source/name       (str (second source-edn))
+       :lhs        (->> source-edn
+                        (drop-while #(not (vector? %)))
+                        (take-while #(not= '=> %)))
+       :rhs        rhs
+       :bindings   (select-keys bindings declared-bindings)
+       :matches    (->> matches
+                        (map first)
+                        (filter #(= (:a %) :precept.spec.rulegen/response))
+                        (first) :v)
+       :generated? true})))
 
-  (defn rules-with-entities-macro [rule-definitions]
-    (->> rule-definitions
-         (map (comp str :name))
-         (group-by #(first (str/split % #"___impl")))
-         (filter #(> (count (second %)) 1))
-         (into {})))
-
-  (defn make-rulegen-name->user-rule-name [xs]
-    (reduce-kv
-      (fn [acc user-rule-name rulegen-names]
-        (->> rulegen-names
-             (map #(assoc acc % user-rule-name))
-             (into {})))
-      {}
-      xs))
-
-  (def rule-name->rule-def (vis-util/key-by :name @state/rule-definitions))
-  (def entities-macro-rules (rules-with-entities-macro @state/rule-definitions))
-  (def rulegen-name->user-rule-name (make-rulegen-name->user-rule-name entities-macro-rules))
-
-  (def rule-definitions* (atom nil))
-
-  (def kebab-case-regex #"[a-z]+(?:-[a-z]+)*")
-  (def variable-binding-regex #"\?[a-z]+(?:-[a-z]+)*")
-  (def special-form-regex #"\[\(<-[^\]]+.]")
-
-  (defn source->bindings [rule-source-str]
-    (->> (re-seq (re-pattern variable-binding-regex) rule-source-str)
-         (set)
-         (map keyword)))
-
-  (defn get-special-form [source-str]
-    (re-find #"\[\(<-[^\]]+.]" source-str))
-
-  (defn rule-def-for-entities-macro [{:keys [source] :as first-split} second-split]
-    (let [declared-bindings (source->bindings source)
-          special-form (get-special-form source)
-          second-conditions (remove (fn [[kw]]
-                                      (#{:precept.spec.sub :precept.spec.rulegen} (namespace kw)))
-                                    (:lhs second-split))]
-      (merge first-split
-             {:source/name           (-> (str (:name first-split)) (str/split #"___") (first))
-              :lhs                   (-> (conj (:lhs first-split) (cljs.reader/read-string special-form))
-                                         (concat second-conditions))
-              :rhs                   (:rhs second-split)
-              :special-form/bindings declared-bindings
-              :generated?            true})))
-
-  ;(defn log-entry-for-generated-rule [rule-definition {:keys [bindings matches facts lhs] :as entry}]
-  ;  (merge entry
-  ;         {:bindings}))
-  (->> log
-       (map
-         (fn [m]
-           (let [{:keys [display-name]} m]
-             (if-let [user-rule-name (get rulegen-name->user-rule-name display-name)]
-               (pr user-rule-name)
-               #_(log-entry-for-generated-rule (get @rule-definitions* user-rule-name) m)
-               (pr 'not-impl)))))))
-(def lhs
-  (->
-    '{:bindings     {:?e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267"},
-      :name         "todomvc.rules/define-1884818656",
-      :type         :add-facts-logical,
-      :ns-name      todomvc.rules,
-      :lhs
-                    [[:or
-                      [:and
-                       {:constraints [(= :all (:v this))], :type :visibility-filter}
-                       {:constraints [(= ?e (:e this))], :type :todo/title}]
-                      [:and
-                       {:constraints [(= :done (:v this))], :type :visibility-filter}
-                       {:constraints [(= ?e (:e this)) (= true (:v this))],
-                        :type        :todo/done}]
-                      [:and
-                       {:constraints [(= :active (:v this))], :type :visibility-filter}
-                       {:constraints [(= ?e (:e this)) (= false (:v this))],
-                        :type        :todo/done}]]],
-      :event-number 5,
-      :matches
-                    [[{:v :all, :e :global, :t 0, :a :visibility-filter} 7]
-                     [{:v "Hi",
-                       :e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267",
-                       :t 13,
-                       :a :todo/title}
-                      8]],
-      :id           #uuid "5bbf2b6a-d663-4273-abf6-1ac866186235",
-      :display-name
-                    "[[:or [:and {:type :visibility-filter, :constraints [(= :all (:v this))]} {:type :todo/title, :constraints [(= ?e (:e this))]}] [:and {:type :visibility-filter, :constraints [(= :done (:v this))]} {:type :todo/done, :constraints [(= ?e (:e this)) (= true (:v this))]}] [:and {:type :visibility-filter, :constraints [(= :active (:v this))]} {:type :todo/done, :constraints [(= ?e (:e this)) (= false (:v this))]}]]]",
-      :state-id     #uuid "5c670c1f-7ae5-40f6-8007-926deefbeb9a",
-      :facts
-                    ({:v true,
-                      :e #uuid "e77fc9e3-833a-4b72-8154-3ddcf31c9267",
-                      :t 18,
-                      :a :todo/visible}),
-      :rhs          (do (precept.util/insert! [?e :todo/visible true])),
-      :state-number 4,
-      :props        nil}
-
-    :lhs))
-;lhs->eav-syntax)
-;(lhs->eav-syntax lhs)
-(defn lhs->eav-syntax
-  "Returns vector of LHS expressions in Precept syntax"
-  [lhs]
-  (when-let [conditions (not-empty lhs)]
-    (let [slot->expression-binding (atom {})]
-      (letfn [(parse [acc ast]
-                (pr "parsing" acc ast)
-                (cond
-                  ;; "op" is a boolean op expression which may be recursive
-                  (s/valid? ::precept-event/op-prefixed-condition ast)
-                  (let [op (first ast)
-                        as-lhs (drop-while #(not (map? %)) ast)
-                        rst (into [op] (if (empty? as-lhs)
-                                         (mapcat #(parse acc %) (rest ast))
-                                         (mapcat #(first (parse acc %)) as-lhs)))]
-                    (if (seq (first acc))
-                      (into acc rst)
-                      (conj acc rst)))
-
-                  (s/valid? ::precept-event/accumulator-map ast)
-                  (let [as-lhs [(:from ast)]
-                        binding (symbol (str (name (:result-binding ast))))]
-                    (conj acc [binding '<- (:accumulator ast) :from (ffirst (lhs->eav-syntax as-lhs))]))
-
-                  (s/valid? ::fact-binding-expression ast)
-                  (let [tuple-ast (select-keys ast [:type :constraints])
-                        binding (symbol (str (name (:fact-binding ast))))]
-                    (conj acc
-                          [binding '<-
-                           (ffirst
-                             (parse-as-positional-tuple
-                               slot->expression-binding acc tuple-ast))]))
-
-                  (s/valid? ::test-condition ast)
-                  (conj acc (into [:test] (:constraints ast)))
-
-                  true
-                  (parse-as-positional-tuple slot->expression-binding acc ast)))]
-        (reduce parse [] conditions)))))
+;; FIXME. Rename. Only using this for generated rule parsing
+(defn parse-log [log rule-definitions]
+  (let [entities-macro-rules (rules-with-entities-macro rule-definitions)
+        rules-by-name (key-rules-by-name rule-definitions)
+        rulegen-name->user-rule-name (make-rulegen-name->user-rule-name entities-macro-rules)]
+    (->> log
+         (map
+           (fn [m]
+             (let [{:keys [display-name]} m]
+               (if-let [user-rule-name (get rulegen-name->user-rule-name display-name) ]
+                 (let [user-rule-def (get rules-by-name display-name)]
+                   (do (pr display-name (:bindings m))
+                       (rule-def-for-entities-macro (:source user-rule-def) m)))
+                 m)))))))
