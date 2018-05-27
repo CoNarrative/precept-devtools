@@ -9,7 +9,6 @@
 
 
 (defn render!
-  ;; TODO. Render rules from target session, not devtools session
   ([] (render! {:rules viz-state/rule-definitions
                 :orm-states viz-state/orm-ratom}))
   ([{:keys [rules orm-states]}]

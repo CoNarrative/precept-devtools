@@ -137,14 +137,16 @@
       (util/event-types->display consequence-op)]
      [:pre
       "{"
-      (map
-        (fn [[k v]]
-          [:span {:key (str k v)}
+      (map-indexed
+        (fn [i [k v]]
+          [:span {:key (str i k v)}
+           (when (not= 0 i) " ")
            (str k " ")
            ;; Subscriptions may have scalar values
            (if (coll? v)
              [matching/pattern-highlight-fact v colors]
-             (str v))])
+             (str v))
+           (when (not= (count sub-map) (inc i)) [:br])])
         sub-map)
       "}"]]))
 
