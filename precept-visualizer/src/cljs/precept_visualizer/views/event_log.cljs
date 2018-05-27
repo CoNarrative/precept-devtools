@@ -30,41 +30,33 @@
     [:div]))
 
 (def detect-near-bottom
-  (debounce
+  (throttle
     (fn []
       (when (< (- (.-scrollHeight js/document.body)
                   (+ (.-innerHeight js/window) (.-scrollY js/window)))
-               100)
-        (do (precept/then [:transient :event-log/near-bottom? true])
-            (pr "near-bottom"))))
+               200)
+        (precept/then [:transient :event-log/near-bottom? true])))
     50))
 
 (defn event-log-state-id->number [id]
   (-> id (clojure.string/split #"-") last js/parseInt))
 
-
-;; Can't be bothered right now...
 (def ignore-scrolling? (atom nil))
-;; ...Long story short scroll listeners receive events applied to document and window regardless of where they are dispatched to,
-;; and I can't otherwise scroll programmatically without triggering every scroll listener
 
 (defn detect-ids-in-view [ids]
   (throttle
     (fn [e]
       (when-not @ignore-scrolling?
         (->> ids
-             (map
+             (filter
                (fn [id]
-                 (let [el (.getElementById js/document id)
-                       rect (.getBoundingClientRect el)
-                       top (.-top rect)
-                       bottom (.-bottom rect)
+                 (let [el       (.getElementById js/document id)
+                       rect     (.getBoundingClientRect el)
+                       top      (.-top rect)
+                       bottom   (.-bottom rect)
                        in-view? (and (< top (.-innerHeight js/window))
                                      (>= bottom 0))]
-                   (when in-view?
-                     (do (pr "dispatching state in view" id)
-                         id)))))
-             (remove nil?)
+                   in-view?)))
              (map event-log-state-id->number)
              (conj [:event-log :event-log/states-in-view])
              (precept/then))))
@@ -77,13 +69,17 @@
     (sort ns)
     (sort #(compare %2 %1) ns)))
 
+(def scroll-listener (atom nil))
+
 (defn event-log [theme]
   (let [{:sort/keys [ascending?]} @(precept/subscribe [:event-log])
         log @state/event-log
-        grouped (group-by :state-number log)
+        grouped (group-by :state-number (precept-visualizer.util/distinct-by :id log))
         state-numbers (sort-numbers (keys grouped) ascending?)
         detect-states-in-view (detect-ids-in-view (map ->event-log-state-dom-id state-numbers))
+        _ (.removeEventListener js/document "scroll" @scroll-listener)
         _ (.addEventListener js/document "scroll" detect-states-in-view)]
+        _ (reset! scroll-listener detect-states-in-view)
     (r/with-let [_ (.addEventListener js/document "scroll" detect-near-bottom)]
       [:div
        [event-log-header {:sort/ascending? ascending?}]
@@ -108,4 +104,4 @@
                                                   :theme             theme
                                                   :show-coordinates? true}]]])]))))]
       (finally (.removeEventListener js/document "scroll" detect-near-bottom)
-               (.removeEventListener js/document "scroll" detect-states-in-view)))))
+               (.removeEventListener js/document "scroll" @scroll-listener)))))

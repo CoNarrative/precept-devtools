@@ -9,8 +9,7 @@
             [precept-visualizer.views.actions :as actions]
             [precept-visualizer.views.event-log :as event-log]
             [precept-visualizer.views.footer :as footer]
-            [precept-visualizer.views.tabs :as tabs]
-            [reagent.core :as r]))
+            [precept-visualizer.views.tabs :as tabs]))
 
 (defn main [{:keys [rules store]}]
   (let [windows (first (:payload @(precept/subscribe [:windows])))

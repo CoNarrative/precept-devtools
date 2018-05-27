@@ -61,14 +61,11 @@
   =>
   (let [dom-id (str "event-log-state-" ?n)]
     (when-let [dom-el (.getElementById js/document dom-id)]
-      (let [rect (.getBoundingClientRect dom-el)
-            top (.-top rect)
-            _ (pr "scrolling to " ?n top)]
-        (reset! ignore-scrolling? true)
-        (.setTimeout js/window
-                     #(reset! ignore-scrolling? false)
-                     200)
-        (.scrollIntoView dom-el)))))
+      (reset! ignore-scrolling? true)
+      (.setTimeout js/window
+                   #(reset! ignore-scrolling? false)
+                   200)
+      (.scrollIntoView dom-el))))
 
 
 (defn get-uncached-event-range [cur existing ascending?]
