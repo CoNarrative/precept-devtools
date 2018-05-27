@@ -72,16 +72,15 @@ a batch of events are sent to the server along with the resultant state and the 
 as "states") are id'd and numbered, along with each event within it. This allows us to refer to the first session event as state 0, event 0. Event 
 numbers are zeroed out for each state and counts start at 0, so the 5th event of the 2nd fire rules call is referred to as `state 1, event 4`.
 
-Each session operation is observable and information rich thanks to the Clara team's tremendous forethought and design decisions in this space.  
-The event data shows:
+Each session operation is observable and information rich thanks to the Clara team's tremendous forethought and design decisions in this space. As a result, the event data contains:
 
-- The operation that took place  (`insert-logical!`, unconditional insert from within a rule, unconditional insert from outside a rule, retract from outside a rule, retract within a rule)
+- The type of operation (`insert-logical!`, unconditional insert from within a rule, unconditional insert from outside a rule, retract from outside a rule, retract within a rule)
 - The rule that was involved (if any)
-- The rule's conditions
-- The fact or facts that matched those conditions
+- The rule's conditions and consequences
+- The facts that matched the rule's conditions
 - The values bound to unification variables during the rule's execution (e.g. `?e` was `123`)
-- The facts that were inserted or retracted
-- That a logically-inserted fact was removed because a rule's condition no longer obtained (i.e., whether and why truth maintenance took place)
+- The facts that were inserted or retracted as a conseqence
+- Whether a logically-inserted fact was removed because a rule's condition no longer obtained (i.e., how and why truth maintenance took place)
 
 Like most debugging tools, this allows us to show what happened during our program's execution, but we're also able to go a step further and explain why.
 
@@ -91,7 +90,7 @@ Like most debugging tools, this allows us to show what happened during our progr
 ### Diff view
 Shows facts that were added and removed for the selected state. Clicking on a fact in this view will create a tracker for it and show an explanation of its history over time.
 
-The "eye" icons in the upper right of each fact indicates whether it's being viewed in the explanation sidebar. The icon will be orange if you are viewing an explanation 
+The eye icons in the upper right of each fact indicates whether it's being viewed in the explanation sidebar. The icon will be orange if you are viewing an explanation 
 that includes the exact instance of that fact, or black if you are viewing a different fact instance with the same eid and attribute.
 
 ### State view
