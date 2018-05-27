@@ -1,6 +1,8 @@
 # precept-devtools
 **alpha preview**
 
+![image](https://user-images.githubusercontent.com/9045165/40581706-627d364e-6114-11e8-9dd0-7f868be5347b.png)
+
 Features:
 
 - Event log
@@ -121,6 +123,11 @@ Updates whenever new events take place in the inspected session.
 Shows why an event occurred. Varies according to the type of event.
 
 Rule explanations:
+
+![image](https://user-images.githubusercontent.com/9045165/40580581-12ef3316-60f6-11e8-8e6c-17fceb3464e2.png)
+
+
+
 Shows the rule name, its conditions, the facts that matched those conditions, and the facts that were inserted or removed as a consequence. 
 If the rule has variable bindings, shows the values that were bound to them at the time the rule fired. Pattern matches are color coded
 within rule conditions and the corresponding parts of facts that matched them.
@@ -128,11 +135,13 @@ within rule conditions and the corresponding parts of facts that matched them.
 
 
 Schema enforcement explanations: 
+![image](https://user-images.githubusercontent.com/9045165/40580381-d39803ea-60f1-11e8-8f67-cbfff3044c98.png)
 
 Displays for events where a fact was removed from the session in order to comply with a user-defined schema. 
 Shows the schema rule enforced, the inserted fact that triggered it, and the existing fact that was removed.
 
 Action explanations: 
+![image](https://user-images.githubusercontent.com/9045165/40580400-3703be56-60f2-11e8-89ca-7e5fe5bd78db.png)
 Shows the facts inserted. Because actions effectively stipulate the existence of a fact, no further explanation is generated.
 
 
