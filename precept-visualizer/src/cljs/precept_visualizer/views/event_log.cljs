@@ -92,14 +92,15 @@
               (fn [state-number]
                 (let [events (get grouped state-number)]
                   [:div {:id  (->event-log-state-dom-id state-number)
-                         :key state-number}
-                   [:div {:style {:display "flex" :align-items "center" :justify-content "flex-end"}}
-                    [:strong {:style {:padding-right 6}}
-                     "Action"]
+                         :key state-number
+                         :style {:margin "15px 0px"}}
+                   [:div {:style {:display "flex" :align-items "center"
+                                  :justify-content "center" :margin-left 44}}
+
                     [icons/flame {:style {:color "orange"}}]]
                    (for [event events]
                      [:div {:key   (:id event)
-                            :style {:display "flex" :align-items "center"}}
+                            :style {:display "flex" :align-items "center" :margin-bottom 15}}
                       [:div {:style {:margin-right 20}}
                        [event-type-icon (:type event)]]
                       [:div {:style {:flex 1}}

@@ -432,6 +432,5 @@
              (let [{:keys [display-name]} m]
                (if-let [user-rule-name (get rulegen-name->user-rule-name display-name) ]
                  (let [user-rule-def (get rules-by-name display-name)]
-                   (do (pr display-name (:bindings m))
-                       (rule-def-for-entities-macro (:source user-rule-def) m)))
+                   (rule-def-for-entities-macro (:source user-rule-def) m))
                  m)))))))

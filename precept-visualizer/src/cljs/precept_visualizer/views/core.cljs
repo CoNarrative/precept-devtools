@@ -41,7 +41,7 @@
           :state [state-tree/main store theme]
           [:div "Not found"])]
        (when (:state-controls/visible? windows)
-         [:div {:style {:position "fixed" :bottom "0"
+         [:div {:style {:position "fixed" :bottom 4
                         :height   (:state-controls/height windows)
                         :width    (str (or (:main/width-percent windows) "100") "vw")}}
           [footer/footer theme]])]

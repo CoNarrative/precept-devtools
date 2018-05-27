@@ -256,7 +256,6 @@
 (defn pattern-highlight
   "Returns markup for a rule's conditions or facts, displaying each on a new line."
   [eavs colors]
-  (pr eavs)
   [:pre
    (->> eavs
         (map-indexed

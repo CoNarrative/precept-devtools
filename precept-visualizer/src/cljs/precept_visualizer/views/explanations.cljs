@@ -21,19 +21,34 @@
                 (= event-direction :desc) -
                 true identity)))))
 
+(defn close-circle-button [{:keys [on-click]}]
+  [:span {:style    {:background      "white"
+                     :border-radius   "100%"
+                     :width           24
+                     :height          24
+                     :font-size       20
+                     :cursor          "pointer"
+                     :display         "flex"
+                     :justify-content "center"
+                     :align-items     "center"}
+          :on-click on-click}
+   [:span {:style {:color "red"}}
+    "x"]])
 
 (defn close-button [{:keys [label on-click]}]
   [:div {:style {:display "flex" :justify-content "flex-end"}}
-   [:span {:style    {:background      "white"
-                      :borderRadius    "4px"
-                      :padding         4
-                      :cursor          "pointer"
-                      :display         "flex"
-                      :justify-content "center"
-                      :align-items     "center"}
-           :on-click on-click}
-    [:span {:style {:color "red"}}
-     (or label "x")]]])
+   (if label
+     [:span {:style    {:background      "white"
+                        :borderRadius    "4px"
+                        :padding         4
+                        :cursor          "pointer"
+                        :display         "flex"
+                        :justify-content "center"
+                        :align-items     "center"}
+             :on-click on-click}
+      [:span {:style {:color "red"}}
+       label]]
+     [close-circle-button {:on-click on-click}])])
 
 
 (defn event-coordinates-row [state-number event-number theme]
@@ -259,10 +274,10 @@
     [rule-explanation {:event log-entry} theme])])
 
 
-(defn fact-viewer [{:keys [viewer-id selected-log-entry selected-occurrence-index total-event-count theme]}]
+(defn fact-viewer [{:keys [viewer-id selected-log-entry selected-occurrence-index total-event-count theme viewer-count]}]
   [:div
-   [close-button {:label    "Remove viewer"
-                  :on-click #(conseq/viewer-cleared viewer-id)}]
+   (when (not= viewer-count 1)
+     [close-button {:on-click #(conseq/viewer-cleared viewer-id)}])
    [prev-next-occurrence-buttons
     selected-occurrence-index total-event-count
     {:next-occurrence #(conseq/viewer-showing-fact-occurrence viewer-id (inc selected-occurrence-index))
@@ -274,15 +289,16 @@
   [:div
    [:div {:style {:display "flex"
                   :align-items "center"
-                  :justify-content "center"}}
+                  :justify-content "center"
+                  :margin-bottom 15}}
     [:div
      "["
      [:span (str fact-e " ")]
      [:strong {:style {:color "#805b95"}}
       fact-a]]
     "]"]
-   [close-button {:label "Remove tracker"
-                  :on-click #(conseq/tracker-cleared tracker-id)}]
+   (when (= (count viewers) 1)
+     [close-button {:on-click #(conseq/tracker-cleared tracker-id)}])
    (for [viewer (map first viewers)]
      (let [{:fact-tracker.viewer/keys [selected-occurrence-index selected-log-entry]
             :as                       viewer-args} viewer
@@ -293,6 +309,7 @@
                       :selected-log-entry        selected-log-entry
                       :selected-occurrence-index selected-occurrence-index
                       :total-event-count         total-event-count
+                      :viewer-count (count viewers)
                       :theme                     theme}]]))])
 
 
@@ -308,7 +325,7 @@
                      :right 0
                      :background (:background-color theme)}}
        [:div {:style {:display "flex" :flex-direction "column"}}
-        [:div {:style {:display "flex"}}
+      #_[:div {:style {:display "flex"}}
           [:button {:style {:background (:primary theme)}
                     :on-click #(doseq [tracker-id (map :db/id trackers)]
                                  (conseq/tracker-cleared tracker-id))}

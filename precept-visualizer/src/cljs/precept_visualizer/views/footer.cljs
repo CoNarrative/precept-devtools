@@ -15,7 +15,9 @@
         prev-state? (not= state-number 0)]
     [:div {:style {:display          "flex"
                    :flex-direction   "column"
-                   :background-color "grey"}}
+                   :background-color "grey"
+                   :border-radius 10
+                   :padding "0px 12px"}}
      [:input {:type      "range"
               :style     {:padding 0}
               :min       0
@@ -24,7 +26,7 @@
               :on-change #(conseq/tracking-state-number (-> % .-target .-value js/Number))}]
      [:div {:style {:display "flex" :align-items "center" :justify-content "space-between"}}
       [:div {:style {:display "flex"}}
-       [:label
+       [:label {:style {:color (:text-color theme)}}
         [:input {:type      "checkbox"
                  :checked   sync?
                  :on-change #(conseq/tracking-state-synced? (not sync?))}]
@@ -41,8 +43,7 @@
        [:strong {:style {:margin "0px 15px"}}
         (str "Fire rules #" state-number)]
        [icon-button
-        {
-         :on-click  #(conseq/tracking-state-number (inc state-number))
+        {:on-click  #(conseq/tracking-state-number (inc state-number))
          :disabled? (not next-state?)
          :icon      [icons/arrow-circle-right
                      {:style (if next-state?
