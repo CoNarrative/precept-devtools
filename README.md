@@ -1,7 +1,7 @@
 # precept-devtools
 **alpha preview**
 
-![image](https://user-images.githubusercontent.com/9045165/40581706-627d364e-6114-11e8-9dd0-7f868be5347b.png)
+![image](https://user-images.githubusercontent.com/9045165/40589524-7f861b40-61a3-11e8-95aa-77734c317112.png)
 
 Features:
 
@@ -96,6 +96,8 @@ that includes the exact instance of that fact, or black if you are viewing a dif
 
 ### State view
 View of all facts in the session for the selected state.
+![image](https://user-images.githubusercontent.com/9045165/40588242-54591f6c-618f-11e8-806a-1edc9f8474ee.png)
+
 
 ### Event log
 View of each event in the order it was recorded.
