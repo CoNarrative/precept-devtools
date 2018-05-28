@@ -90,6 +90,9 @@ Like most debugging tools, this allows us to show what happened during our progr
 ### Diff view
 Shows facts that were added and removed for the selected state. Clicking on a fact in this view will create a tracker for it and show an explanation of its history over time.
 
+![image](https://user-images.githubusercontent.com/9045165/40593269-45d7eebc-61dc-11e8-9ae7-003d25334774.png)
+
+
 The eye icons in the upper right of each fact indicates whether it's being viewed in the explanation sidebar. The icon will be orange if you are viewing an explanation 
 that includes the exact instance of that fact, or black if you are viewing a different fact instance with the same eid and attribute.
 
@@ -119,6 +122,8 @@ Additional views are automatically generated when the `[e a]` of the fact you wa
 Lists all rules in the session, showing history for them if there is any.
 Shows each event the rule participated in and an explanation for each. 
 Updates whenever new events take place in the inspected session.
+
+![image](https://user-images.githubusercontent.com/9045165/40593514-cc0d0c78-61dd-11e8-97b4-56be7921dad6.png)
 
 ### Explanations
 Shows why an event occurred. Varies according to the type of event.
@@ -150,5 +155,9 @@ Shows the facts inserted. Because actions effectively stipulate the existence of
 ### Subscriptions
 Lists each registered subscription and shows its previous and current values relative to the currently tracked state/fire-rules number.
 
+![image](https://user-images.githubusercontent.com/9045165/40593314-a18ff272-61dc-11e8-9411-0e0e4a0900bc.png)
+
 ### Actions
 Shows facts that were inserted at the start of the selected state via `precept.core/then` that initiated all other events within the current state/`fire-rules`. 
+
+![image](https://user-images.githubusercontent.com/9045165/40593357-e9aee19e-61dc-11e8-8886-b98be8bc5d02.png)
