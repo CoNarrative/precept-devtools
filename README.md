@@ -60,31 +60,6 @@ If you have an existing Precept app and are using `0.5.0-alpha` or above, you ca
 the devtools server by passing `{:devtools true}` to `precept.core/start!`, or supply your own 
 configuration options to connect to a server on a different host and port.
 
-
-## Overview
-The devtools are comprised of a Clojurescript client and Clojure server. The architecture is primarily push-based. Most communication happens via socket. 
-There are the beginnings of a REST API -- `GET /log/range/:n1/:n2` -- which returns EDN data for states within a requested window.
-
-The server receives a considerable amount of information from running Precept applications, including each rule definition and the schema being enforced. 
-
-With devtools enabled, `precept.core` accumulates an event log for each session operation. When `fire-rules` completes,
-a batch of events are sent to the server along with the resultant state and the diff relative to the previous state. Calls to `fire-rules` (also referred to 
-as "states") are id'd and numbered, along with each event within it. This allows us to refer to the first session event as state 0, event 0. Event 
-numbers are zeroed out for each state and counts start at 0, so the 5th event of the 2nd fire rules call is referred to as `state 1, event 4`.
-
-Each session operation is observable and information rich thanks to the Clara team's tremendous forethought and design decisions in this space. As a result, the event data contains:
-
-- The type of operation (`insert-logical!`, unconditional insert from within a rule, unconditional insert from outside a rule, retract from outside a rule, retract within a rule)
-- The rule that was involved (if any)
-- The rule's conditions and consequences
-- The facts that matched the rule's conditions
-- The values bound to unification variables during the rule's execution (e.g. `?e` was `123`)
-- The facts that were inserted or retracted as a conseqence
-- Whether a logically-inserted fact was removed because a rule's condition no longer obtained (i.e., how and why truth maintenance took place)
-
-Like most debugging tools, this allows us to show what happened during our program's execution, but we're also able to go a step further and explain why.
-
-
 ## Features
 
 ### Diff view
@@ -125,32 +100,22 @@ Updates whenever new events take place in the inspected session.
 
 ![image](https://user-images.githubusercontent.com/9045165/40593514-cc0d0c78-61dd-11e8-97b4-56be7921dad6.png)
 
-### Explanations
-Shows why an event occurred. Varies according to the type of event.
+### Rule explanations
 
-Rule explanations:
+![image](https://user-images.githubusercontent.com/9045165/40593663-d1089b24-61de-11e8-93bf-f135471cef19.png)
 
-![image](https://user-images.githubusercontent.com/9045165/40580581-12ef3316-60f6-11e8-8e6c-17fceb3464e2.png)
+Shows the rule name, the type of rule, its conditions, the facts that matched those conditions, and the facts that were inserted or removed as a consequence. 
+If the rule has variable bindings, shows the values that were bound to them at the time the rule fired. Pattern matches are color coded within rule conditions and the corresponding parts of facts that matched them.
 
-
-
-Shows the rule name, its conditions, the facts that matched those conditions, and the facts that were inserted or removed as a consequence. 
-If the rule has variable bindings, shows the values that were bound to them at the time the rule fired. Pattern matches are color coded
-within rule conditions and the corresponding parts of facts that matched them.
-
-
-
-Schema enforcement explanations: 
+### Schema enforcement explanations
 ![image](https://user-images.githubusercontent.com/9045165/40580381-d39803ea-60f1-11e8-8f67-cbfff3044c98.png)
 
 Displays for events where a fact was removed from the session in order to comply with a user-defined schema. 
 Shows the schema rule enforced, the inserted fact that triggered it, and the existing fact that was removed.
 
-Action explanations: 
+### Action explanations
 ![image](https://user-images.githubusercontent.com/9045165/40580400-3703be56-60f2-11e8-89ca-7e5fe5bd78db.png)
 Shows the facts inserted. Because actions effectively stipulate the existence of a fact, no further explanation is generated.
-
-
 
 ### Subscriptions
 Lists each registered subscription and shows its previous and current values relative to the currently tracked state/fire-rules number.
@@ -161,3 +126,29 @@ Lists each registered subscription and shows its previous and current values rel
 Shows facts that were inserted at the start of the selected state via `precept.core/then` that initiated all other events within the current state/`fire-rules`. 
 
 ![image](https://user-images.githubusercontent.com/9045165/40593357-e9aee19e-61dc-11e8-8886-b98be8bc5d02.png)
+
+
+## Overview
+The devtools are comprised of a Clojurescript client and Clojure server. The architecture is primarily push-based. Most communication happens via socket. 
+There are the beginnings of a REST API -- `GET /log/range/:n1/:n2` -- which returns EDN data for states within a requested window.
+
+The server receives a considerable amount of information from running Precept applications, including each rule definition and the schema being enforced. 
+
+With devtools enabled, `precept.core` accumulates an event log for each session operation. When `fire-rules` completes,
+a batch of events are sent to the server along with the resultant state and the diff relative to the previous state. Calls to `fire-rules` (also referred to 
+as "states") are id'd and numbered, along with each event within it. This allows us to refer to the first session event as state 0, event 0. Event 
+numbers are zeroed out for each state and counts start at 0, so the 5th event of the 2nd fire rules call is referred to as `state 1, event 4`.
+
+Each session operation is observable and information rich thanks to the Clara team's tremendous forethought and design decisions in this space. As a result, the event data contains:
+
+- The type of operation (`insert-logical!`, unconditional insert from within a rule, unconditional insert from outside a rule, retract from outside a rule, retract within a rule)
+- The rule that was involved (if any)
+- The rule's conditions and consequences
+- The facts that matched the rule's conditions
+- The values bound to unification variables during the rule's execution (e.g. `?e` was `123`)
+- The facts that were inserted or retracted as a conseqence
+- Whether a logically-inserted fact was removed because a rule's condition no longer obtained (i.e., how and why truth maintenance took place)
+
+Like most debugging tools, this allows us to show what happened during our program's execution, but we're also able to go a step further and explain why.
+
+
